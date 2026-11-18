@@ -223,6 +223,47 @@ dbClient.ExecSPTrn("sp_QC100110_SAVE"
         })
         self.assertEqual([(ROOT / 'Sample.sql').resolve()], rpaths)
 
+    def test_compound_engineering_and_edd_end_to_end_linkage(self):
+        import json
+        import os
+        import subprocess
+        import sys
+        import tempfile
+        from unittest.mock import patch
+        from src.maintenance.agents import agent_definitions
+        from src.runtime.hooks import handle
+
+        defs = agent_definitions(ROOT)
+        for role in ('kh-sql-worker', 'kh-csharp-worker', 'kh-pb-worker', 'kh-rule-auditor'):
+            self.assertIn('compound_rules', defs[role])
+            self.assertIn('EDD Scenario Matrix', defs[role])
+
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder).resolve()
+            project = base / 'project'
+            project.mkdir()
+            log = base / 'transcript.jsonl'
+            log.write_text('', encoding='utf-8')
+            data_dir = base / 'data'
+            scope = {'cwd': str(project), 'session_id': 'compound-sess', 'transcript_path': str(log)}
+            with patch.dict(os.environ, {'PLUGIN_DATA': str(data_dir), 'KH_HOOKS_MODE': 'enforce'}):
+                handle({**scope, 'hook_event_name': 'UserPromptSubmit', 'prompt': '$sql-formatting task', 'turn_id': 't1'}, 'codex')
+                cmd_base = [sys.executable, '-B', str(ROOT / 'scripts/kh_context.py'),
+                            '--cwd', str(project), '--session', 'compound-sess', '--transcript', str(log),
+                            '--host', 'codex', '--data-root', str(data_dir / 'context-v1')]
+                comp = subprocess.run([*cmd_base, 'compound', 'ba030t-left-join', '--domain', 'sql',
+                                       '--anti-pattern', 'INNER JOIN BA030T for display-only item names',
+                                       '--rule', 'Use LEFT OUTER JOIN BA030T when only fetching ITEMNM/SPEC'],
+                                      capture_output=True, text=True, encoding='utf-8', check=True)
+                self.assertEqual('compounded', json.loads(comp.stdout)['status'])
+
+                recalled = json.loads(subprocess.run([*cmd_base, 'recall'], capture_output=True, text=True, encoding='utf-8', check=True).stdout)
+                self.assertEqual(1, len(recalled['compound_rules']))
+                self.assertEqual('ba030t-left-join', recalled['compound_rules'][0]['id'])
+
+                started = handle({**scope, 'hook_event_name': 'SessionStart'}, 'codex')
+                self.assertIn('ba030t-left-join', started['hookSpecificOutput']['additionalContext'])
+
 
 if __name__ == '__main__':
     unittest.main()

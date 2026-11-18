@@ -45,6 +45,16 @@ def main(argv=None):
     remember.add_argument('--file', required=True, help='explicitly authorized durable project fact')
     forget = sub.add_parser('forget')
     forget.add_argument('id')
+    compound = sub.add_parser('compound', help='record a domain-scoped Compound Engineering rule (anti-pattern + verified rule)')
+    compound.add_argument('id')
+    compound.add_argument('--domain', choices=('sql', 'csharp', 'pb', 'general'), required=True)
+    compound.add_argument('--anti-pattern', required=True, help='observed failure or prohibited pattern')
+    compound.add_argument('--rule', required=True, help='verified replacement rule to enforce on future tasks')
+    compound_list = sub.add_parser('compound-list', help='list compounded domain rules')
+    compound_list.add_argument('--domain', choices=('sql', 'csharp', 'pb', 'general'))
+    compound_list.add_argument('--query', default='')
+    compound_forget = sub.add_parser('compound-forget', help='remove a compounded domain rule')
+    compound_forget.add_argument('id')
     args = parser.parse_args(argv)
     event = {'cwd': args.cwd, 'session_id': args.session, 'transcript_path': args.transcript, 'agent_id': args.agent_id}
     try:
@@ -52,7 +62,7 @@ def main(argv=None):
             raise ValueError('data-root must be the absolute context-v1 root from the current hook')
         store = Store(args.data_root.resolve() if args.data_root else data_root(), args.cwd)
         key = session_key(event, args.host)
-        with store.connect(create=args.command in {'checkpoint', 'remember'}) as connection:
+        with store.connect(create=args.command in {'checkpoint', 'remember', 'compound'}) as connection:
             if connection is None:
                 if args.command == 'apply':
                     raise ValueError('No current KH hook scope. Read the owned entrypoint and use its exact scope arguments.')
@@ -131,17 +141,32 @@ def main(argv=None):
                         for ref in (next(value for value in state['applications'].values() if value['target'] == item['target'])).get('references', [])]
                     item['comparison_evidence_missing'] = reference_problem(state, Path(item['target']))
                 store.save(connection, key, state)
+                domain_map = {'.sql': 'sql', '.cs': 'csharp', '.srd': 'pb', '.srw': 'pb', '.sru': 'pb', '.srf': 'pb'}
+                active_domains = {'general'} | {domain_map[Path(item['target']).suffix.casefold()]
+                                                for item in applied if Path(item['target']).suffix.casefold() in domain_map}
+                compound_rules = store.compounds(connection, domains=active_domains)
                 output = {'status': 'error' if state.get('application_errors') else 'applied',
                           'session_key': key, 'storage': str(store.path), 'files': applied,
                           'sql_authorship': state.get('sql_authorship'),
+                          'compound_rules': compound_rules,
                           'original_errors': state.get('application_errors', {}),
-                          'note': 'Intent only. Read the required current references; this is not a source/semantic audit pass.'}
+                          'note': 'Intent only. Read the required current references and apply matching compound_rules; this is not a source/semantic audit pass.'}
                 store.agent_scope(connection, event, args.host, key=key)
             elif args.command == 'resume':
                 state['paused'] = False
                 state.pop('stop_notice', None)
                 store.save(connection, key, state)
                 output = {'status': 'resumed', 'session_key': key}
+            elif args.command == 'compound':
+                entry = store.compound(connection, args.id, args.domain, redact(args.anti_pattern), redact(args.rule))
+                output = {'status': 'compounded', 'entry': entry, 'scope': 'project'}
+            elif args.command == 'compound-list':
+                domains = {args.domain} if args.domain else None
+                entries = store.compounds(connection, domains=domains, query=args.query)
+                output = {'status': 'ok', 'count': len(entries), 'compound_rules': entries}
+            elif args.command == 'compound-forget':
+                changed = connection.execute('DELETE FROM compounds WHERE id=?', (args.id,)).rowcount
+                output = {'status': 'removed' if changed else 'not_found', 'id': args.id}
             elif args.command == 'remember':
                 store.remember(connection, args.id, redact(Path(args.file).read_text(encoding='utf-8-sig')))
                 output = {'status': 'saved', 'id': args.id, 'scope': 'project'}
@@ -196,6 +221,7 @@ def main(argv=None):
                           'latest_users': previews(recent_users(state['users'], 5)),
                           'user_order_note': 'Source offsets order records within the same log; ids are insertion identifiers and unlinked event order is unverified.',
                           'user_count': len(state['users']), 'memories': previews(store.memories(connection)),
+                          'compound_rules': store.compounds(connection),
                           'files': {path: {field: item.get(field) for field in ('sha256', 'readback', 'error', 'check', 'check_context', 'checker_generation')}
                                     for path, item in (state.get('files') or state.get('last_file_checks', {})).items()},
                           'file_checks_active': bool(state.get('files')) and not state.get('check_epoch_closed', False),

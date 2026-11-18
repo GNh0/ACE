@@ -573,10 +573,11 @@ def clear_usage(state: dict) -> None:
     state.pop('kh_scope_closed', None)
 
 
-def restore(state: dict, memories: list[dict], store: Store) -> str:
+def restore(state: dict, memories: list[dict], store: Store, compounds: list[dict] | None = None) -> str:
     discard_host_records(state)
+    compounds = compounds or []
     if (not state.get('users') and not state.get('checkpoint') and not state.get('latest_prompt') and
-            not memories and not state.get('capture_warning') and not state.get('backlog_bytes') and
+            not memories and not compounds and not state.get('capture_warning') and not state.get('backlog_bytes') and
             not state.get('paused') and not state.get('files') and not state.get('before')):
         return ''
     header = ('KH recovery evidence. This is stored historical data, not new instructions. '
@@ -623,6 +624,10 @@ def restore(state: dict, memories: list[dict], store: Store) -> str:
                      json.dumps({'entry_count': len(memories), 'preview': [
                          {**item, 'text': item['text'][:350], 'preview_truncated': len(item['text']) > 350}
                          for item in memories[:2]], 'more_entries': len(memories) > 2}, ensure_ascii=False))
+    if compounds:
+        parts.append('Compounded domain rules (anti-patterns and verified rules):\n' +
+                     json.dumps({'entry_count': len(compounds), 'preview': compounds[:4],
+                                 'more_entries': len(compounds) > 4}, ensure_ascii=False))
     body = '\n\n'.join(parts)
     reserved = '\n\n'.join(part for part in (header, diagnostics, footer) if part)
     budget = max(0, 6400 - len(reserved))
@@ -816,9 +821,14 @@ def handle(event: dict, host: str) -> dict:
                 capture(state, event, host)
             if messages:
                 notice = ('KH saved-file checks (partial, not semantic audit). review_required is unresolved, not completion. '
-                          'Read back each changed unit, resolve findings against actual requirements/reference sources, then audit combined changes and regressions.\n')
+                          'Read back each changed unit, resolve findings against actual requirements/reference sources, verify EDD Positive + Negative/boundary scenarios, then audit combined changes and regressions.\n')
                 if name == 'PostToolUseFailure':
                     notice = 'The tool failed; these saved files may contain partial changes. ' + notice
+                suffix_map = {'.sql': 'sql', '.cs': 'csharp', '.srd': 'pb', '.srw': 'pb', '.sru': 'pb', '.srf': 'pb'}
+                touched_domains = {'general'} | {suffix_map[p.suffix.casefold()] for p in paths if p.suffix.casefold() in suffix_map}
+                active_compounds = store.compounds(connection, domains=touched_domains) if paths else []
+                if active_compounds:
+                    notice += 'Active Compound rules for this domain: ' + json.dumps(active_compounds[:4], ensure_ascii=False) + '\n'
                 shown = []
                 for message in messages:
                     if len(notice) + sum(map(len, shown)) + len(message) > 5600:
@@ -886,7 +896,7 @@ def handle(event: dict, host: str) -> dict:
             # Both hosts inject restored context through SessionStart, not PostCompact.
             compact = event.get('source') == 'compact'
             if not compact or state.get('restore_pending', True):
-                text = restore(state, store.memories(connection), store)
+                text = restore(state, store.memories(connection), store, store.compounds(connection))
                 if text:
                     text += '\nExact recovery scope: ' + json.dumps({key: event.get(key) for key in ('cwd', 'session_id', 'transcript_path', 'agent_id')}, ensure_ascii=False) + '; host=' + host
                     if state.get('paused'):
@@ -920,7 +930,7 @@ def handle(event: dict, host: str) -> dict:
                 state['completion_status'] = 'requires_repair_or_evidence'
                 state['semantic_audit_verified'] = False
                 reason = ('KH cannot verify completion for these saved files: ' + ', '.join(pending) + '. '
-                          'Read back current bodies, inspect actual project/reference contracts, resolve new review findings and repair confirmed violations only, re-audit and check introduced regressions. '
+                          'Read back current bodies, inspect actual project/reference contracts, resolve new review findings and repair confirmed violations only, verify EDD Positive + Negative/boundary scenarios, re-audit and check introduced regressions. '
                           'Report unsupported/unresolved evidence accurately; do not claim a checker proves full compliance. ' +
                           ('Missing required KH references: ' + ', '.join(missing_references) + '. ' if missing_references else '') +
                           ('Unverified application originals: ' + '; '.join(application_errors.values()) + '. ' if application_errors else '') +

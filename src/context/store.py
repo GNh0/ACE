@@ -52,6 +52,7 @@ class Store:
             connection.execute('BEGIN IMMEDIATE')
             connection.execute('CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, body TEXT NOT NULL)')
             connection.execute('CREATE TABLE IF NOT EXISTS memories (id TEXT PRIMARY KEY, body TEXT NOT NULL, updated REAL NOT NULL)')
+            connection.execute('CREATE TABLE IF NOT EXISTS compounds (id TEXT PRIMARY KEY, domain TEXT NOT NULL, anti_pattern TEXT NOT NULL, rule TEXT NOT NULL, updated REAL NOT NULL)')
             connection.execute('CREATE TABLE IF NOT EXISTS agent_scopes (id TEXT PRIMARY KEY, session_key TEXT NOT NULL)')
             yield connection
             connection.commit()
@@ -103,3 +104,31 @@ class Store:
         tokens = query.casefold().split()
         return [{'id': row[0], 'text': row[1]} for row in rows
                 if all(token in (row[0] + ' ' + row[1]).casefold() for token in tokens)]
+
+    @staticmethod
+    def compound(connection, key: str, domain: str, anti_pattern: str, rule: str) -> dict:
+        domain = domain.strip().casefold()
+        if domain not in {'sql', 'csharp', 'pb', 'general'}:
+            raise ValueError('compound domain must be sql, csharp, pb, or general')
+        if not key or len(key) > 120 or not anti_pattern.strip() or len(anti_pattern) > 2000 or not rule.strip() or len(rule) > 2000:
+            raise ValueError('compound needs an id <=120, anti_pattern <=2000 and rule <=2000 characters')
+        others = connection.execute('SELECT COALESCE(SUM(length(anti_pattern) + length(rule)),0) FROM compounds WHERE id<>?', (key,)).fetchone()[0]
+        if others + len(anti_pattern) + len(rule) > 64000:
+            raise ValueError('compound store capacity exceeded; explicitly revise or compound-forget obsolete entries')
+        connection.execute('INSERT OR REPLACE INTO compounds VALUES (?, ?, ?, ?, ?)',
+                           (key, domain, anti_pattern.strip(), rule.strip(), time.time()))
+        return {'id': key, 'domain': domain, 'anti_pattern': anti_pattern.strip(), 'rule': rule.strip()}
+
+    @staticmethod
+    def compounds(connection, domains: set[str] | None = None, query: str = '') -> list[dict]:
+        rows = connection.execute('SELECT id, domain, anti_pattern, rule FROM compounds ORDER BY updated DESC').fetchall()
+        tokens = query.casefold().split()
+        allowed = {d.casefold() for d in domains} if domains else None
+        result = []
+        for row in rows:
+            if allowed is not None and row[1].casefold() not in allowed:
+                continue
+            combined = f'{row[0]} {row[1]} {row[2]} {row[3]}'.casefold()
+            if all(token in combined for token in tokens):
+                result.append({'id': row[0], 'domain': row[1], 'anti_pattern': row[2], 'rule': row[3]})
+        return result
