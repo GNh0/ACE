@@ -1,0 +1,26 @@
+{
+  "name": "ace",
+  "displayName": "ACE",
+  "version": "4.0.0",
+  "agents": [
+    "./agents/kh-sql-worker.md",
+    "./agents/kh-csharp-worker.md",
+    "./agents/kh-pb-worker.md",
+    "./agents/kh-rule-auditor.md"
+  ],
+  "description": "ACE (Audit & Code Everything): Shared SQL, C#/Designer and PowerBuilder development skills with local checks.",
+  "author": {
+    "name": "GNho Labs",
+    "url": "https://github.com/GNh0"
+  },
+  "homepage": "https://gnholabs.com",
+  "repository": "https://github.com/GNh0/ACE",
+  "keywords": [
+    "claude",
+    "codex",
+    "skills",
+    "sql",
+    "csharp",
+    "powerbuilder"
+  ]
+}
