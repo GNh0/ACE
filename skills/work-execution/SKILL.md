@@ -19,7 +19,6 @@ Follow the current host task/Goal tool contract for completion and blocked statu
 - Apply [runtime cleanup](../runtime-cleanup/SKILL.md) when using command trees, background helpers, persistent REPLs or other runtime resources; release completed task-owned work before final handover.
 - Read [secret handling](references/secret-handling.md) only when handling input containing actual secrets.
 - Read [preferences and exceptions](references/preferences.md) when deciding whether a disfavored approach is necessary.
-- **RTK Output & Context Discipline**: Filter command outputs, logs, and file reads to the exact relevant line ranges or summary counts instead of dumping multi-thousand-line raw outputs into context, preventing context bloat from diluting domain style rules.
 
 Communicate the work and meaningful progress. Do not record errors, interruptions, or unexecuted work as success. Deliver the complete code/SQL or final replacement requested by the user, identifying changed program IDs and the scope verified.
 

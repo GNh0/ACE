@@ -2,7 +2,7 @@
 
 **Claude, Codex, Antigravity에서 사용하는 SQL·C#/Designer·PowerBuilder 개발 스킬 및 하네스.**
 
-ACE는 스킬 12개, 역할별 에이전트 4개, 정적·교차 계약 검사기(C# ↔ SQL 교차 검증, Compound Engineering 자산화, EDD 시나리오 검증, RTK 출력 최적화 포함)와 Windows 작업 프로세스 실행기를 제공합니다. SQL·PB·C# 개발, 개발 진행·디버깅, 감사·검증, 작업 복원과 영구 프로젝트 메모리를 다룹니다. 모든 플랫폼은 같은 `skills/`, `src/`, `scripts/`를 공유하며, 각 플랫폼용 manifest와 marketplace가 설치를 담당합니다.
+ACE는 스킬 12개, 역할별 에이전트 4개, 정적·교차 계약 검사기(C# ↔ SQL 교차 검증, Compound Engineering 자산화, EDD 시나리오 검증 포함)와 Windows 작업 프로세스 실행기를 제공합니다. SQL·PB·C# 개발, 개발 진행·디버깅, 감사·검증, 작업 복원과 영구 프로젝트 메모리를 다룹니다. 모든 플랫폼은 같은 `skills/`, `src/`, `scripts/`를 공유하며, 각 플랫폼용 manifest와 marketplace가 설치를 담당합니다.
 
 [English](README.md) · [스킬](#스킬) · [로컬 검사](#선택형-로컬-검사) · [개발 검사](docs/development.md)
 

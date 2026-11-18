@@ -2,7 +2,7 @@
 
 **SQL, C#/Designer and PowerBuilder skills, harness checks, hooks and agents for Claude, Codex and Antigravity.**
 
-ACE packages twelve focused skills, four role agents, deterministic local Python checks (including C# ↔ SQL cross-contract checks, Compound Engineering distillation, EDD scenario verification, and RTK output discipline) and a Windows owned-command runner in one repository. All platforms load the same `skills/` and use the same `src/` and `scripts/`.
+ACE packages twelve focused skills, four role agents, deterministic local Python checks (including C# ↔ SQL cross-contract checks, Compound Engineering distillation, and EDD scenario verification) and a Windows owned-command runner in one repository. All platforms load the same `skills/` and use the same `src/` and `scripts/`.
 
 [한국어](README.ko.md) · [Skills](#skills) · [Local checks](#optional-local-checks) · [Development](docs/development.md)
 
