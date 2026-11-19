@@ -21,7 +21,7 @@ SQL Server 프로시저, WinForms/DevExpress 화면, PowerBuilder 이관을 사�
 
 ## 규칙 고치기
 
-규칙은 `SKILL.md`나 `references/*.md` 한 곳에만 씁니다. 같은 규칙을 여러 파일에 중복해서 적지 않습니다. 교정은 우선 `lessons.md`에 추가하고, 일반 규칙으로 굳어지면 해당 reference로 옮깁니다.
+규칙은 `SKILL.md`나 `references/*.md` 한 곳에만 씁니다. 같은 규칙을 여러 파일에 중복해서 적지 않습니다. 예외로 "작업 파일과 정리"는 각 스킬이 혼자서도 완결되도록 세 SKILL.md에 같은 내용을 둡니다. 고칠 때는 셋을 함께 고칩니다. 교정은 우선 `lessons.md`에 추가하고, 일반 규칙으로 굳어지면 해당 reference로 옮깁니다.
 
 ## 설치
 
