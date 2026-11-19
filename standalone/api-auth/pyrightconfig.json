@@ -1,5 +1,0 @@
-{
-  "include": ["src", "scripts"],
-  "typeCheckingMode": "standard",
-  "pythonVersion": "3.11"
-}

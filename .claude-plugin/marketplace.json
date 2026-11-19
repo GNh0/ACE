@@ -11,9 +11,9 @@
         "url": "https://github.com/GNh0/ACE.git",
         "ref": "release"
       },
-      "version": "4.0.0",
-      "description": "ACE (Audit & Code Everything): SQL, C#/Designer and PowerBuilder skills."
+      "version": "5.0.0",
+      "description": "ACE: SQL, C#/Designer and PowerBuilder skills."
     }
   ],
-  "description": "GNho Labs development skills for Claude and Codex."
+  "description": "GNho Labs development skills."
 }
