@@ -354,7 +354,7 @@ private bool CallSaveProcedure()
                 , new DbParameter("@WORKTYPE", m_Editmode.ToString().ToUpper())
                 , new DbParameter("@ORGDIV", userInfo.Orgdiv)
                 , new DbParameter("@USERID", userInfo.UserId)
-                , new DbParameter("@USERIP", userInfo.UserIP)
+                , new DbParameter("@USERIP", devFnc.GetUserPCData())
                 , new DbParameter("@XML", strXml)
                 , new DbParameter("@XMLDETAIL", strXmlDetail)
                 );
@@ -377,7 +377,7 @@ private bool CallSaveProcedure()
 
 ## 화면에서 쓰는 공통 함수
 
-새로 만들기 전에 아래에 있는지 먼저 본다. 실제 인자와 동작은 대상 프로젝트의 `KoneLib` 소스에서 확인한다.
+새로 만들기 전에 아래에 있는지 먼저 본다. 어떤 동작에 어떤 이벤트와 메서드를 쓰는지는 [behaviors.md](behaviors.md)에 사용 빈도와 함께 있다. 실제 인자와 동작은 대상 프로젝트의 `KoneLib` 소스에서 확인한다.
 
 | 하는 일 | 쓰는 것 |
 | --- | --- |
@@ -391,7 +391,7 @@ private bool CallSaveProcedure()
 | 조회 / 저장 | `dbClient.GetDataSetFromSP(…)` / `dbClient.ExecSPTrn(…)` |
 | 툴바 명령 다시 실행(저장 후 재조회 등) | `CallCommand(BizCommand.Search)` |
 | 메시지 | `ShowMessage`, `ShowMessageWaring`, `ShowMessageError`, `ShowMessageYesNO`, `ShowExcetion(ee)` |
-| 로그인 정보 | `userInfo.Orgdiv`, `userInfo.UserId`, `userInfo.UserIP` |
+| 로그인 정보 | `userInfo.Orgdiv`, `userInfo.UserId`. `@USERIP`에는 `devFnc.GetUserPCData()` |
 | 품목 등 선택 팝업 | 팝업 폼에 `userInfo`·`dbClient`를 넘기고 `ShowDialog() == DialogResult.OK`이면 선택 행(`drItem`)에서 값을 가져온다 |
 
 메서드 이름의 오타(`ShowMessageWaring`, `ShowExcetion`)는 실제 이름이므로 그대로 쓴다.

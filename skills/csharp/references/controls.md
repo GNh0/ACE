@@ -12,8 +12,8 @@
 
 | Role | Name |
 | --- | --- |
-| Text, numeric, date | `txt<Field>`, `Spin<Field>`, `ymd<Field>` |
-| Lookup, button, check, memo | `cbo<Field>`, `btn<FieldOrRole>`, `Chk<Field>`, `memo<Field>` |
+| Text, numeric, date | `txt<Field>`, `spin<Field>`, `ymd<Field>` |
+| Lookup, button, check, memo | `cbo<Field>`, `btn<FieldOrRole>`, `chk<Field>`, `memo<Field>` |
 | Panel, group, grid, view | `pn<Role>`, `grp<Role>`, `grd<Role>`, `gvw<Role>` |
 | Column | `col<Role>_<FIELD>` |
 | Numeric, lookup, button, check Repository | `rpsSpin<Field>`, `rpscbo<Field>`, `rpsbtn<Field>`, `rpschk<Field>` |

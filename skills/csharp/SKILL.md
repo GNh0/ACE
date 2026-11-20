@@ -16,6 +16,8 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 | 바꾸는 부분 | 볼 문서 |
 | --- | --- |
 | 화면을 새로 만들기, 조회·저장 메서드 형태 | [screen-skeleton.md](references/screen-skeleton.md) |
+| 어떤 동작에 어떤 이벤트·공통 메서드를 쓰는지 | [behaviors.md](references/behaviors.md) |
+| 컨트롤을 Designer에 추가(속성 블록), 이벤트 연결 위치, 이름 접두어 | [control-blocks.md](references/control-blocks.md) |
 | 메서드·이벤트·문법 | [coding-style.md](references/coding-style.md) |
 | 컨트롤·Repository·이름 | [controls.md](references/controls.md) |
 | Designer 배치·이관 | [designer.md](references/designer.md) |
@@ -35,7 +37,9 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 - 사용자 컨트롤의 기본값을 덮어쓰지 않는다. 필요한 속성만 바꾼다.
 - if·else·반복문은 한 줄이어도 **항상 중괄호**를 쓴다. 기존 화면에 중괄호 없는 한 줄 if가 있어도 새로 쓰는 코드는 중괄호를 쓴다.
 - 저장은 `dbClient.ExecSPTrn`으로 부른다. 트랜잭션은 이 메서드가 맡으므로 화면이나 SP에 따로 만들지 않는다.
-- 정적 배치는 Designer에, 동적 바인딩·업무 코드는 코드비하인드에 둔다. 이벤트는 기존 구독 위치에 한 번만 연결한다.
+- **화면 구성은 Designer에, 이벤트 연결은 비하인드 코드에 둔다.** 컨트롤 생성·배치·속성은 `InitializeComponent()`에, 이벤트 구독(`+=`)은 생성자에서 `InitializeComponent()` 다음에 이름 있는 핸들러로 한 번씩 쓴다. Designer에 이벤트 구독을 새로 쓰지 않는다.
+- 새 동작은 먼저 [behaviors.md](references/behaviors.md)에서 같은 동작의 이벤트와 공통 메서드를 찾아 쓴다. 새 헬퍼를 만들거나 `MessageBox.Show`, 직접 만든 DB 연결을 쓰지 않는다.
+- 값 변경 핸들러(`EditValueChanged`, `CellValueChanged`)와 명령 핸들러는 첫 줄에서 `m_Editmode`를 확인한다.
 - LINQ·중간 테이블·빌드는 기본적으로 쓰지 않는다. 없으면 구현이 어렵거나 성능 차이가 극단적일 때만 쓰고 이유를 말한다.
 - 화면과 SP가 같이 바뀌면 sql 스킬도 따르고, SP 인자·XML TableName·행 상태·결과표 순서·바인딩 FieldName을 양쪽에서 하나씩 대조한다.
 
