@@ -9,7 +9,7 @@ description: PowerBuilder PBL·DataWindow·이벤트를 분석하거나 WinForms
 
 ## 시작 전에
 
-1. [lessons.md](references/lessons.md)를 읽는다. 해당하는 항목은 아래 규칙보다 우선한다.
+1. 교정 기록을 읽는다. 플러그인의 [lessons.md](references/lessons.md)와 로컬 기록 `~/.claude/ace/lessons/pb.md`(없으면 넘어간다) 둘 다다. 둘이 다르면 로컬이 최신이다. 해당하는 항목은 아래 규칙보다 우선한다. [compound.md](references/compound.md)
 2. 정확한 PBL·객체, 상속 기반 클래스, 연결된 DataWindow, 실제 이벤트·SQL·보고서 관계를 먼저 읽는다. 내보내기 파일만 받았으면 그 범위 안에서만 말하고, 읽지 않은 PBL 전체를 분석했다고 하지 않는다.
 3. 필요한 문서만 읽는다.
 
@@ -41,8 +41,8 @@ description: PowerBuilder PBL·DataWindow·이벤트를 분석하거나 WinForms
 
 별도 검토 에이전트 없이 직접 확인하고 답변에 넣는다.
 
-1. **원본↔결과 매핑**: 이벤트·DW·SQL·필드가 대상의 어디로 갔는지 목록으로 남긴다. 빠진 것은 미확인으로 적는다.
-2. **규칙 대조**: 위 규칙, lessons.md, 그리고 함께 쓴 csharp·sql 스킬의 자체 점검을 수행한다.
+1. **원본↔결과 매핑**: 이벤트·DW·SQL·필드가 대상의 어디로 갔는지 목록으로 남긴다. 항목마다 **원본(PB 내보내기 파일:줄)과 결과(파일:줄)**를 근거로 적고, 빠진 것은 미확인으로 적는다. 형태는 [verify.md](references/verify.md).
+2. **규칙 대조**: 위 규칙, 교정 기록(플러그인·로컬), 그리고 함께 쓴 csharp·sql 스킬의 자체 점검을 수행한다. C#을 만들었으면 csharp 스킬의 계약 대조표(화면 ↔ SP, 저장 호출이 `ExecSPTrn`인지 `ExecSP`인지 포함)도 채운다.
 3. **시나리오 표**:
 
 | 구분 | 확인할 사례 | 근거 |
@@ -56,4 +56,6 @@ description: PowerBuilder PBL·DataWindow·이벤트를 분석하거나 WinForms
 
 ## 교정을 받으면 (Compound)
 
-사용자가 결과를 교정하면 고친 뒤, ACE 저장소의 `skills/pb/references/lessons.md`에 항목을 추가하자고 제안한다. 사용자가 동의하면 추가한다.
+사용자가 결과를 교정했거나(틀렸다고 지적, 같은 말을 다시 함, 방식을 바꾸라고 함) 대조·실행에서 나온 어긋남의 원인이 규칙에 없거나 틀렸으면, 고친 뒤 **묻지 않고** 로컬 기록 `~/.claude/ace/lessons/pb.md`에 항목을 추가하고 답변에 `교정 기록에 추가: <제목>` 한 줄로 알린다. 같은 내용이 이미 있으면 그 항목을 고친다. 이번 작업에만 해당하는 요구와 내 추측은 적지 않는다.
+
+저장소(lessons.md·reference)로 옮기는 승격은 사용자가 "교정 기록 정리해줘 / ACE에 반영해줘"라고 할 때만 한다. 로컬 항목이 10개를 넘으면 정리를 제안만 한다. 형식과 절차는 [compound.md](references/compound.md).
