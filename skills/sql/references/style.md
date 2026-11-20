@@ -158,37 +158,64 @@ FROM ORDERS A
 
 ## 조건 주석
 
-수량·상태를 비교하는 조건, 검증의 판정 조건, 대상을 고르는 핵심 조건에는 **바로 윗줄에 그 조건이 업무로 무슨 뜻인지** 한 줄 주석을 단다. 컬럼 이름이 아니라 업무 용어와 비교 기호로 쓴다.
+수량·상태를 비교하는 조건, 검증의 판정 조건, 대상을 고르는 핵심 조건에는 **바로 윗줄에 그 조건이 업무로 무슨 뜻인지** 한 줄 주석을 단다. 읽는 사람이 **식의 각 항이 어떤 수량인지** 바로 알 수 있어야 한다.
+
+주석만으로는 부족하다. 아래처럼 양쪽이 모두 `QTY`면 주석이 있어도 어느 쪽이 입고이고 어느 쪽이 불출인지 식에서 보이지 않는다.
 
 ```sql
-WHERE T.ORGDIV = @ORGDIV
+-- 쓰지 않는 형태: 양쪽 다 QTY라서 무슨 수량인지 알 수 없다
   -- 이전공정 입고수량 > 누적불출수량
   AND T.QTY > ISNULL(T1.QTY, 0)
 ```
 
+그래서 두 가지를 함께 한다.
+
+1. **파생 테이블의 집계 열에는 무슨 수량인지 드러나는 이름을 준다.** `SUM(T.QTY) AS QTY`로 두지 않고 `AS OUTQTY`(불출), `AS INQTY`(입고), `AS PRODQTY`(실적), `AS PURQTY`(발주)처럼 쓴다.
+2. **주석은 식과 같은 순서, 같은 비교 기호로 쓴다.** 왼쪽 항의 이름이 주석의 왼쪽, 오른쪽 항의 이름이 주석의 오른쪽에 온다.
+
 ```sql
+FROM MA210T T
+        LEFT OUTER JOIN (
+                         SELECT T.ORGDIV
+                              , T.INRECDT
+                              , T.INSEQ1
+                              , T.INSEQ2
+                              , SUM(T.QTY) AS OUTQTY
+                         FROM SA210T T
+                         WHERE T.ORGDIV = @ORGDIV
+                         GROUP BY T.ORGDIV, T.INRECDT, T.INSEQ1, T.INSEQ2
+                        ) T1
+                        ON T.ORGDIV = T1.ORGDIV
+                        AND T.RECDT = T1.INRECDT
+                        AND T.SEQ1 = T1.INSEQ1
+                        AND T.SEQ2 = T1.INSEQ2
 WHERE T.ORGDIV = @ORGDIV
-  -- 이전공정 완료 또는 누적처리수량 >= 계획수량
-  AND (T.FINYN = 'Y' OR ISNULL(T1.QTY, 0) >= T.QTY)
+  -- 이전공정 입고수량 > 누적불출수량
+  AND T.QTY > ISNULL(T1.OUTQTY, 0)
 ```
 
 ```sql
--- 입고키별 기존 불출수량 + 이번 발주수량 <= 입고수량
+-- 입고키별 이번 발주수량 + 기존 누적불출수량 <= 입고수량
 IF EXISTS (
            SELECT 1
-           FROM @TMP_DETAIL A
-                   INNER JOIN STOCK_IN B
+           FROM (…) A
+                   INNER JOIN MA210T B
                            ON A.INRECDT = B.RECDT
+                   LEFT OUTER JOIN (…) C
+                                   ON A.INRECDT = C.INRECDT
            -- 이번 발주수량 + 기존 누적불출수량 > 입고수량
-           WHERE A.QTY + ISNULL(C.QTY, 0) > B.QTY
+           WHERE A.PURQTY + ISNULL(C.OUTQTY, 0) > B.QTY
           )
 ```
 
+- 원본 테이블의 열(`T.QTY`, `B.QTY`)은 이름을 바꿀 수 없으므로, 그 항이 어떤 테이블의 무슨 수량인지 주석이 맡는다. 파생 열은 이름으로 맡는다.
+- 한 식에 `QTY`라는 이름이 두 번 이상 나오면 파생 열 이름을 고친다.
 - 주석은 설명하는 조건과 **같은 들여쓰기**로, 그 조건 바로 위에 둔다. 줄 끝에 붙이지 않는다.
-- `수량A > 수량B`처럼 조건과 같은 방향의 비교 기호를 쓴다. 검증 블록은 위에 "통과 조건"(`<=`)을, 판정 줄에 "오류 조건"(`>`)을 적는다.
+- 검증 블록은 위에 "통과 조건"(`<=`)을, 판정 줄에 "오류 조건"(`>`)을 적는다.
 - 단순한 키 조건(`A.ORGDIV = @ORGDIV`, JOIN의 키 비교)에는 달지 않는다. 봐도 뜻이 바로 안 보이는 비교·계산·제외 조건에만 단다.
 - 여러 문장이 이어지는 SAVE에서는 큰 단계마다 한 줄 주석으로 무엇을 하는지 적는다(`-- 발주 상세: 선택한 입고 LOT 행마다 1행`).
 - 기존 주석은 지우거나 고쳐 쓰지 않는다. 조건을 바꿨으면 그 조건의 주석도 같이 맞춘다.
+- 조회 결과로 화면에 나가는 열 이름은 화면 FieldName과 맞아야 하므로 이 규칙으로 바꾸지 않는다. 바꾸는 것은 안쪽 파생 테이블의 열 이름이다.
 
 ## 프로시저 헤더
 

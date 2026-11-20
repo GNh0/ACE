@@ -32,7 +32,7 @@ description: SQL Server 쿼리·프로시저(SP)를 사용자 방식으로 작�
 - WHERE 안의 EXISTS·IN 서브쿼리는 JOIN으로 바꾼다(수정·검토 요청일 때). 단 SAVE의 `IF EXISTS` 검증은 유지한다.
 - SAVE에서는 건수 변수, MAX 순번 변수, 중간 결과 테이블 변수, WHILE·커서 행 단위 처리, NEW/EDIT 분기 복사를 쓰지 않는다. 자세한 형태는 [save.md](references/save.md).
 - `@변수`는 문법상 꼭 필요한 것만 둔다.
-- 수량·상태 비교, 검증 판정, 대상 선별 같은 핵심 조건에는 바로 윗줄에 업무 뜻을 적은 한 줄 주석을 단다(`-- 이전공정 입고수량 > 누적불출수량`). 형태는 [style.md](references/style.md#조건-주석).
+- 수량·상태 비교, 검증 판정, 대상 선별 같은 핵심 조건에는 바로 윗줄에 업무 뜻을 적은 한 줄 주석을 단다(`-- 이전공정 입고수량 > 누적불출수량`). 식의 각 항이 어떤 수량인지 보이도록 파생 테이블의 집계 열은 `QTY`가 아니라 `OUTQTY`·`INQTY`처럼 이름을 준다. 형태는 [style.md](references/style.md#조건-주석).
 - **SAVE SP 안에 트랜잭션 코드(BEGIN TRANSACTION, COMMIT, ROLLBACK, TRY/CATCH)를 쓰지 않는다.** C#의 `ExecSPTrn`이 맡는다. 검증 실패는 `RAISERROR … RETURN`만 한다.
 - FROM·WHERE·ORDER BY는 SELECT와 같은 열에서 시작한다(왼쪽 맞춤). LEFT/RIGHT JOIN에는 `OUTER`를 쓴다. CTE는 꼭 필요할 때만 쓴다.
 - LINQ·중간 테이블·빌드는 기본적으로 쓰지 않는다. 없으면 구현이 어렵거나 성능 차이가 극단적일 때만 쓰고 이유를 말한다.
