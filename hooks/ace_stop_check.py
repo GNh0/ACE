@@ -1,7 +1,7 @@
 """ACE Stop/SubagentStop 훅. 문제없으면 아무것도 출력하지 않는다.
-ACE sql 스킬로 SP를 쓰거나 적용했는데 실행 검증 흔적도, 미실행 사유도 없거나,
-쓴 SP 파일이 check_sql.py 검사에 실패하면 한 번만 막는다(stop_hook_active면 통과).
-ACE_HOOK=off 이면 아무것도 하지 않는다. 어떤 오류도 작업을 막지 않는다.
+sql 스킬: SP를 쓰거나 적용했는데 실행 검증 흔적도, 미실행 사유도 없거나, 쓴 SP 파일이 check_sql.py에 실패하면 막는다.
+csharp 스킬: 쓰거나 고친 .cs(Designer·비하인드)가 check_designer.py에 실패하면 막는다(원본은 transcript의 originalFile).
+한 번만 막는다(stop_hook_active면 통과). ACE_HOOK=off 이면 아무것도 하지 않는다. 어떤 오류도 작업을 막지 않는다.
 """
 import json
 import os
@@ -66,14 +66,63 @@ def strings(obj):
             yield from strings(v)
 
 
-def checker():
-    """skills/sql/scripts/check_sql.py 모듈."""
+def checker(skill='sql', module='check_sql'):
+    """skills/<skill>/scripts/<module>.py 모듈."""
     root = os.environ.get('CLAUDE_PLUGIN_ROOT') or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    scripts = os.path.join(root, 'skills', 'sql', 'scripts')
+    scripts = os.path.join(root, 'skills', skill, 'scripts')
     if scripts not in sys.path:
         sys.path.insert(0, scripts)
-    import check_sql
-    return check_sql
+    return __import__(module)
+
+
+def used(uses, skill):
+    for name, inp in uses:
+        if name == 'Skill' and str(inp.get('skill', '')).lower() in ('ace:' + skill, 'ace/' + skill):
+            return True
+        p = str(inp.get('file_path', '')).replace('\\', '/').lower()
+        if name == 'Read' and 'ace' in p and p.endswith('skills/%s/skill.md' % skill):
+            return True
+    return False
+
+
+def fail_block(fails, script):
+    more = len(fails) - MAX_LINES
+    return (script + ' 실패 항목. 이번에 쓰거나 고친 부분이면 고친 뒤 다시 돌려라. '
+            '요청 범위 밖의 기존 코드면 고치지 말고 답변에 그렇게 적어라:\n' + '\n'.join(fails[:MAX_LINES])
+            + ('\n- 외 %d개' % more if more > 0 else ''))
+
+
+def csharp_reasons(window, uses):
+    """csharp 스킬로 쓰거나 고친 .cs 파일의 check_designer.py 실패."""
+    if not used(uses, 'csharp'):
+        return []
+    files = []
+    for name, inp in uses:
+        p = str(inp.get('file_path', ''))
+        if name in ('Write', 'Edit', 'MultiEdit') and p.lower().endswith('.cs') \
+                and not COPY_NAME.search(os.path.basename(p)) and p not in files:
+            files.append(p)
+    originals = {}
+    for d in window:
+        r = d.get('toolUseResult')
+        if isinstance(r, dict) and r.get('filePath') and 'originalFile' in r:
+            originals.setdefault(os.path.normcase(os.path.abspath(r['filePath'])), r.get('originalFile'))
+    fails = []
+    try:
+        ck = checker('csharp', 'check_designer')
+        for p in files:
+            if not os.path.isfile(p):
+                continue
+            orig = originals.get(os.path.normcase(os.path.abspath(p)))
+            orig = orig.replace('\r\n', '\n') if isinstance(orig, str) else None
+            results, _ = ck.run(p, orig_text=orig)
+            for st, item, ls, note in results:
+                if st == ck.FAIL:
+                    fails.append('- %s: %s: %s' % (os.path.basename(p), item,
+                                                  ' / '.join(x for x in (ck.fmt_lines(ls, 8), note) if x)))
+    except Exception:
+        return []
+    return [fail_block(fails, 'check_designer.py')] if fails else []
 
 
 def read_text(path):
@@ -91,15 +140,11 @@ def analyze(entries, last_message):
             start = i
     window = entries[start:]
     uses = list(tool_uses(window))
+    return sql_reasons(window, uses, last_message) + csharp_reasons(window, uses)
 
-    used_skill = False
-    for name, inp in uses:
-        if name == 'Skill' and str(inp.get('skill', '')).lower() in ('ace:sql', 'ace/sql'):
-            used_skill = True
-        p = str(inp.get('file_path', '')).replace('\\', '/').lower()
-        if name == 'Read' and 'ace' in p and p.endswith('skills/sql/skill.md'):
-            used_skill = True
-    if not used_skill:
+
+def sql_reasons(window, uses, last_message):
+    if not used(uses, 'sql'):
         return []
 
     sp_files, applied, evidence = [], False, False
@@ -133,7 +178,7 @@ def analyze(entries, last_message):
                 break
     finals += [str(inp.get('message', '')) for name, inp in uses if name == 'SubagentHandback'][-1:]
     if not evidence and not any(SKIP_REASON.search(t) for t in finals):
-        reasons.append('SP를 고쳤는데 실행 검증을 하지 않았다. references/verify.md대로 실행해서 시나리오 표에 '
+        reasons.append('SP를 고쳤는데 실행 검증을 하지 않았다. references/verify-save.md대로 실행해서 시나리오 표에 '
                        '숫자를 적거나, 실행할 수 없으면 답변에 `실행 검증: 하지 않음 - <이유>`를 적어라.')
 
     fails = []
@@ -150,10 +195,7 @@ def analyze(entries, last_message):
     except Exception:
         fails = []
     if fails:
-        more = len(fails) - MAX_LINES
-        reasons.append('check_sql.py 실패 항목. 이번에 쓰거나 고친 부분이면 고친 뒤 다시 돌려라. '
-                       '요청 범위 밖의 기존 코드면 고치지 말고 답변에 그렇게 적어라:\n' + '\n'.join(fails[:MAX_LINES])
-                       + ('\n- 외 %d개' % more if more > 0 else ''))
+        reasons.append(fail_block(fails, 'check_sql.py'))
     return reasons
 
 

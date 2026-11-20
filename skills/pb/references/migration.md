@@ -1,19 +1,19 @@
-# C# · SELECT/SAVE 이관
+# C# and SELECT/SAVE migration
 
-## 매핑
+## Mapping
 
-- PB의 retrieve/update 경로를 C# 파라미터·XML, SP 결과표, 채번, NEW/MOD/DEL, 검증 위치로 옮긴다. SELECT와 SAVE를 둘 다 요청받으면 둘 다 완성한다.
-- 원래 검증을 지우거나 C#의 일괄 덮어쓰기로 바꾸지 않는다.
-- 단일 호출의 파라미터 이름·필수 여부를 실제 SP 정의와 대조한다. 계산으로 만드는 파라미터 이름은 미확인으로 남긴다. OUTPUT 방향, 반환값, XML 내용도 따로 확인한다.
-- 생성·정리하는 SQL은 sql 스킬을 따른다. DB 전용 SQL 파일을 C# 프로젝트 항목으로 등록하지 않는다.
+- Move PB retrieve/update paths to C# parameters/XML, SP result sets, numbering, NEW/MOD/DEL and check locations. If both SELECT and SAVE are requested, finish both.
+- Do not delete original checks or replace them with a bulk overwrite in C#.
+- Compare each call's parameter names and required flags with the real SP definition. Leave computed parameter names `미확인`. Check OUTPUT direction, return value and XML content separately.
+- Generated or cleaned SQL follows the sql skill. Do not add DB-only SQL files as C# project items.
 
-## PB 소스에서 SQL 찾기
+## Finding SQL in PB source
 
-- DataWindow의 retrieve SQL(따옴표 안 값), PowerScript의 embedded SQL, 문자열로 조립하는 SQL 조각을 구분한다. 조립 SQL은 실제 조립 순서를 확인한다.
-- 동적 `DataObject` 대입은 이름을 추측하지 않고 미해결로 남긴다.
+- Distinguish DataWindow retrieve SQL (the quoted value), PowerScript embedded SQL, and SQL built from string pieces. For built SQL check the real assembly order.
+- Do not guess dynamic `DataObject` assignments; leave them unresolved.
 
-## 결과 검증
+## Result check
 
-- 상세 계획 요청이면 화면·이벤트·DW·DB·필드·입출력·저장 순서·모호한 점·구현 순서를 다른 사람이 이어서 구현할 수 있게 연결한다. 단순 SELECT 추출에는 이 문서나 C# 생성을 요구하지 않는다.
-- 입력·조회·편집 보호·저장·출력 흐름을 실제 소스로 따라간다. 조회, 편집 보호, 신규/수정/삭제, XML, SP, 재조회·복원, 출력 흐름을 원본과 대상에서 비교한다. 빠진 이벤트·필드·간접 호출은 미확인으로 적는다.
-- 값·행 수·쿼리 수·성능이 같다는 주장은 같은 조건의 실제 비교 결과가 있어야 한다.
+- For a detailed plan, link screens, events, DWs, DB, fields, I/O, save order, open questions and implementation order so someone else can continue. A simple SELECT extraction needs neither this document nor C# generation.
+- Trace input, query, edit protection, save and output in real source. Compare query, edit protection, new/edit/delete, XML, SP, re-query/restore and output between source and target. Write missing events, fields and indirect calls as `미확인`.
+- Claims that values, row counts, query counts or performance are equal need a real comparison under the same conditions.

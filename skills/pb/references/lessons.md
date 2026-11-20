@@ -1,9 +1,5 @@
-# PB 교정 기록
+# PB lessons
 
-사용자가 교정한 실수의 기록이다. 작업 전에 읽고, 해당하면 다른 규칙보다 우선한다. 로컬 기록과 함께 읽는 법, 항목 형식, 승격 절차는 [compound.md](compound.md)에 있다.
-
-각 항목의 `규칙:`은 한 문장과 규칙의 자리로 가는 링크다. 전체 내용·예시·예외는 링크한 문서에 있다.
-
-더 이상 맞지 않는 항목은 지운다. 항목 제목은 다른 문서가 앵커로 가리킬 수 있으므로 바꾸면 링크도 함께 고친다.
+Corrected mistakes; a matching entry overrides other rules. Format and promotion: [compound.md](compound.md). `Rule:` links to the rule's home. Titles are anchors.
 
 ---

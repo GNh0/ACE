@@ -1,5 +1,5 @@
 {
-  "description": "ACE sql: SP를 고치고 실행 검증도 미실행 사유도 없으면 끝내기 전에 한 번 막는다. ACE_HOOK=off로 끈다.",
+  "description": "ACE: blocks once before stopping when an sql-skill SP has no execution evidence or reason, or when a written file fails check_sql.py / check_designer.py. ACE_HOOK=off turns it off.",
   "hooks": {
     "Stop": [
       {

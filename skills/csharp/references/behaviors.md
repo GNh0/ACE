@@ -1,102 +1,89 @@
-# 동작별 이벤트와 공통 메서드
+# Events and common methods per behaviour
 
-"이 동작을 하려면 어떤 이벤트에, 어떤 공통 메서드를 쓰는가"를 정리한 표다. 근호·KH 작성 SP를 부르는 화면 100개(C_KONE110_1)의 핸들러 본문을 집계했다(2026-11-20). 괄호의 %는 그 핸들러 중 해당 메서드를 부르는 비율이다.
+"Which event and which shared method does this behaviour use." Counted from handler bodies of 100 user screens calling KH-written SPs (C_KONE110_1, 2026-11-20); % = share of those handlers calling the method. Look here first; only then search more sibling screens; a new helper is the last resort.
 
-새 동작을 넣을 때는 먼저 이 표에서 같은 동작을 찾고, 없을 때만 비교 화면을 더 찾아본다. 새 헬퍼 메서드를 만드는 것은 마지막 수단이다.
+## Toolbar commands
 
-## 툴바 명령 (폼 이벤트)
-
-| 동작 | 이벤트 | 핸들러 안에서 하는 일 |
+| Behaviour | Event | Inside the handler |
 | --- | --- | --- |
-| 화면 초기화 | `Load` | 콤보 바인딩 `syCode.BindingCode`(66%), 날짜 초기값 `ymd.SetToDay(n)`(67%), 처음엔 잠금 `devFnc.Usr_ControlsProtect(…, true)`(67%). 열자마자 조회하려면 끝에 `CallCommand(BizCommand.Search)`(25%) |
-| 조회 | `SearchCommand` | `m_Editmode` 확인 → `CallSelectProcedure(…)`(72%) → `DataSource` 대입 → `BestFitColumns()`(83%) → `Usr_ControlsProtect(…, true)`(56%). 상세 영역은 `devFnc.InitControl(그룹)`으로 비운다(52%) |
-| 신규 | `NewCommand` | `m_Editmode` 확인·변경(60%) → `devFnc.InitControl`(50%) → `Usr_ControlsProtect(…, false)`(52%) → 필요한 날짜 초기값 `SetToDay`(20%) |
-| 수정 | `EditCommand` | `m_Editmode` 확인(75%) → 선택 행이 없으면 `ShowMessageWaring` 후 return(51%) → `m_Editmode` 변경 → `Usr_ControlsProtect(…, false)`(68%) |
-| 저장 | `SaveCommand` | `m_Editmode` 확인(67%) → `ShowMessageYesNO`로 확인(35%) → `CallSaveProcedure()`(62%) → 성공하면 `ShowMessage("정상처리되었습니다.")`(55%) → `CallCommand(BizCommand.Search)`(67%) |
-| 취소 | `ClearCommand` | `m_Editmode = DataEditMode.Default`(60%) → `CallCommand(BizCommand.Search)`(65%) |
-| 삭제 | `DeleteCommand` | `m_Editmode` 확인(70%) → 선택이 없으면 `ShowMessageWaring`(61%) → `ShowMessageYesNO`(75%) → `gvw.DeleteSelectedRows()`(38%) → `CallSaveProcedure()`(54%) → `ShowMessage`(63%) → `CallCommand(BizCommand.Search)`(66%) |
-| 출력 | `PrintCommand` | `GetFocusedDataRow()`로 대상 확인 → `CallSelectProcedure(SelectType.PRINT, …)` → 보고서 생성 → `ShowRibbonPreview()` |
-| 복사 | `CopyCommand` | 선택 행 확인 → `m_Editmode` 변경 → `Usr_ControlsProtect(…, false)` → 키·일자만 새로 초기화 |
+| Init | `Load` | `syCode.BindingCode` (66%), `ymd.SetToDay(n)` (67%), lock with `devFnc.Usr_ControlsProtect(…, true)` (67%); search on open: `CallCommand(BizCommand.Search)` last (25%) |
+| Search | `SearchCommand` | mode check → `CallSelectProcedure` (72%) → `DataSource` → `BestFitColumns()` (83%) → `Usr_ControlsProtect(…, true)` (56%); clear detail with `devFnc.InitControl(group)` (52%) |
+| New | `NewCommand` | mode check/change (60%) → `InitControl` (50%) → `Usr_ControlsProtect(…, false)` (52%) → needed `SetToDay` (20%) |
+| Edit | `EditCommand` | mode check (75%) → no row: `ShowMessageWaring` and return (51%) → change mode → `Usr_ControlsProtect(…, false)` (68%) |
+| Save | `SaveCommand` | mode check (67%) → `ShowMessageYesNO` (35%) → `CallSaveProcedure()` (62%) → `ShowMessage("정상처리되었습니다.")` (55%) → `CallCommand(BizCommand.Search)` (67%) |
+| Cancel | `ClearCommand` | `m_Editmode = DataEditMode.Default` (60%) → `CallCommand(BizCommand.Search)` (65%) |
+| Delete | `DeleteCommand` | mode check (70%) → nothing selected: `ShowMessageWaring` (61%) → `ShowMessageYesNO` (75%) → `gvw.DeleteSelectedRows()` (38%) → `CallSaveProcedure()` (54%) → `ShowMessage` (63%) → search (66%) |
+| Print | `PrintCommand` | `GetFocusedDataRow()` → `CallSelectProcedure(SelectType.PRINT, …)` → build report → `ShowRibbonPreview()` |
+| Copy | `CopyCommand` | check selection → change mode → `Usr_ControlsProtect(…, false)` → re-init keys and dates only |
 
-- 모든 명령 핸들러는 **`m_Editmode` 확인으로 시작**한다. 집계한 화면 코드에서 `m_Editmode`가 883번 나온다.
-- 저장·삭제 후 화면 갱신은 조회 코드를 다시 쓰지 않고 `CallCommand(BizCommand.Search)`로 한다.
+- **Every command handler starts with the `m_Editmode` check** (883 occurrences).
+- After save/delete refresh with `CallCommand(BizCommand.Search)`, never a second copy of the query code.
 
-## 그리드
+## Grid
 
-| 동작 | 이벤트 | 핸들러 안에서 하는 일 |
+| Behaviour | Event (subscriptions in 100 screens) | Inside the handler |
 | --- | --- | --- |
-| 선택 행의 상세 표시 | `gvw.FocusedRowChanged` | 편집 중이면 막는다(`m_Editmode` 확인 52%, 필요하면 `ShowMessageWaring`). 행이 없으면 `devFnc.InitControl(그룹)`(41%) 후 return. `GetFocusedDataRow()` → `CallSelectProcedure(SelectType.DETAIL)` 또는 `devFnc.DataRowToPanel` |
-| 셀 값이 바뀌면 다른 셀 계산 | `gvw.CellValueChanged` | `e.Column.FieldName`으로 대상 열 확인 → `GetRowCellValue`(73%) → `SetRowCellValue`(69%) |
-| 조건에 따라 셀 편집 막기 | `gvw.ShowingEditor` | `GetFocusedDataRow()`(76%)와 `m_Editmode`(58%)로 판단 → `e.Cancel = true`(100%) |
-| 행 더블클릭으로 선택·열기 | `gvw.DoubleClick` | `GetFocusedDataRow()`(63%) → 팝업이면 `ShowDialog()`, 선택 팝업 안이면 선택 행을 넘기고 닫기 |
-| 편집 중 다른 행으로 이동 막기 | `gvw.BeforeLeaveRow` | `m_Editmode` 확인(100%) → `ShowMessage`(100%) → 이동 취소 |
-| 셀의 찾기 버튼(품목·거래처 팝업) | `rpsbtn.ButtonClick` | `m_Editmode` 확인 → `GetFocusedDataRow()`(68%) → 팝업에 `userInfo`·`dbClient` 전달 → `ShowDialog() == DialogResult.OK`(86%)이면 선택 행 값을 `dr["필드"]`에 대입 |
-| 상세 행 추가·삭제(그룹 머리글 버튼) | `grp.CustomButtonClick` | 추가: `NewRow()` → 필드 대입 → `Rows.Add()`(47%). 삭제: `DeleteSelectedRows()`(47%) |
-| 상세 행 추가·삭제(일반 버튼) | `btn.Click` | 위와 같다. 버튼 종류만 다르다 |
+| Show the focused row's detail | `gvw.FocusedRowChanged` (68) | block while editing (mode check 52%, `ShowMessageWaring`); no row: `InitControl(group)` (41%) and return; `GetFocusedDataRow()` → `CallSelectProcedure(DETAIL)` or `DataRowToPanel` |
+| Recalculate other cells | `gvw.CellValueChanged` (26) | check `e.Column.FieldName` → `GetRowCellValue` (73%) → `SetRowCellValue` (69%) |
+| Block editing by condition | `gvw.ShowingEditor` (17) | `GetFocusedDataRow()` (76%), mode (58%) → `e.Cancel = true` |
+| Open/select by double-click | `gvw.DoubleClick` (11) | `GetFocusedDataRow()` (63%) → popup `ShowDialog()`, or pass the row back and close |
+| Block leaving a row while editing | `gvw.BeforeLeaveRow` | mode check → `ShowMessage` → cancel |
+| Cell find button (item, customer popup) | `rpsbtn.ButtonClick` (51) | mode check → `GetFocusedDataRow()` (68%) → popup gets `userInfo`, `dbClient` → `ShowDialog() == DialogResult.OK` (86%) → copy the selected row (`drItem`) into `dr["FIELD"]` |
+| Detail add/delete | `grp.CustomButtonClick` (17) or `btn.Click` (105) | add: `NewRow()` → assign → `Rows.Add()`; delete: `DeleteSelectedRows()` |
 
-## 입력 컨트롤
+## Inputs
 
-| 동작 | 이벤트 | 핸들러 안에서 하는 일 |
+| Behaviour | Event | Inside the handler |
 | --- | --- | --- |
-| 수량·금액이 바뀌면 합계 다시 계산 | `spin.EditValueChanged` | `m_Editmode == Default`이면 return(100%) → 다른 `spin.Value` 계산 |
-| 콤보 선택에 따라 다른 컨트롤 갱신 | `cbo.EditValueChanged` | `m_Editmode` 확인(70%) → 값 대입 또는 재조회 |
-| 일자가 바뀌면 재계산·재조회 | `ymd.EditValueChanged` | `m_Editmode` 확인(86%) → `ymd.YYYYMMDD()`(46%)로 값 읽기 |
-| 입력란의 찾기 버튼 | `btn.ButtonClick` (`u_ButtonEdit`) | `m_Editmode` 확인(43%) → 팝업 `ShowDialog()`(66%) → 선택 값 대입. 첨부 파일이면 `ShowAttPop`(33%) |
-| 버튼 동작(승인, 완료, 복사 등) | `btn.Click` (`u_ButtonControl`) | `m_Editmode` 확인 → `ShowMessageYesNO` → 저장 호출 → `ShowMessage` → `CallCommand(BizCommand.Search)` |
-| 탭 전환 | `tab.SelectedPageChanged` | 탭에 맞게 `CallCommand(BizCommand.Search)`(28%), `Usr_ControlsProtect`(24%) |
+| Quantity/amount → totals | `spin.EditValueChanged` (32) | `m_Editmode == Default` → return (100%) → compute |
+| Combo → refresh others | `cbo.EditValueChanged` (24) | mode check (70%) → assign or re-query |
+| Date → recalc/re-query | `ymd.EditValueChanged` (15) | mode check (86%) → `ymd.YYYYMMDD()` |
+| Input find button | `btn.ButtonClick` (`u_ButtonEdit`, 39) | mode check → popup `ShowDialog()` (66%) → assign; attachments `ShowAttPop` |
+| Button action (approve, finish, copy) | `btn.Click` | mode check → `ShowMessageYesNO` → save → `ShowMessage` → search |
+| Tab change | `tab.SelectedPageChanged` (25) | `CallCommand(BizCommand.Search)` (28%), `Usr_ControlsProtect` (24%) |
 
-- 입력 컨트롤의 값 변경 핸들러는 **조회로 값이 채워질 때도 불린다.** 그래서 첫 줄에서 `m_Editmode == DataEditMode.Default`이면 return한다. 이 확인을 빼면 조회할 때마다 계산이 돌아 값이 덮인다. 그리드의 `CellValueChanged`와 명령 핸들러도 첫 줄에서 `m_Editmode`를 확인한다.
+- Value-change handlers **also fire when a query fills the control**, so their first line returns when `m_Editmode == DataEditMode.Default`; otherwise every search reruns the calculation and overwrites values. Grid `CellValueChanged` and command handlers check the mode first too.
 
-## 조회·저장 메서드
+## Common methods
 
-| 메서드 | 안에서 쓰는 것 |
+Most used first; check here before writing anything new. Real signatures: the target project's `KoneLib` source.
+
+| Method | Count | Does |
+| --- | --- | --- |
+| `devFnc.Usr_ControlsProtect(control, bool)` | 418 | lock (true) / unlock a container or grid |
+| `syCode.BindingCode(code, control)` / `BindingorgdivCode(code, orgdiv, control)` | 352 / 31 | fill combo or repository lists |
+| `devFnc.InitControl(container)` | 325 | clear inputs in a container |
+| `CallCommand(BizCommand.…)` | 276 | run a toolbar command from code |
+| `gvw.BestFitColumns()` | 267 | fit columns after a query |
+| `ShowMessage` / `ShowMessageWaring` / `ShowMessageError` / `ShowMessageYesNO` / `ShowExcetion(ee)` | 253 / 226 / 195 / 149 / 108 | messages (typos are the real names) |
+| `ymd.YYYYMMDD()` / `ymd.SetToDay(n)` | 246 / 173 | date as 8-char SP argument / today ± n |
+| `gvw.GetFocusedDataRow()` / `GetDataRow(handle)` / `GetSelectedRows()` | 206 / 112 / 76 | rows |
+| `DataUtil.DataTableToXml(table, state)` | 155 | save XML |
+| `gvw.GetRowCellValue` / `SetRowCellValue` | 152 / 123 | cell values |
+| `devFnc.GetUserPCData()` | 64 | `@USERIP` |
+| `gvw.DeleteSelectedRows()` | 59 | mark selected rows Deleted |
+| `devFnc.GetGridRowIndex(…)` | 35 | return to the previous row after a re-query |
+| `devFnc.DataRowToPanel(row, panel)` / `MasterToDataTable` (`dtMasterToDataTable`) | 32 / 21 (16) | row ↔ panel |
+| `userInfo.Orgdiv`, `userInfo.UserId`, `dbClient.GetDataSetFromSP` / `ExecSPTrn` | | login info, query / save |
+
+Inside `CallSelectProcedure`: `GetDataSetFromSP` (79%), `userInfo.Orgdiv` (84%), `YYYYMMDD()` (67%). Inside `CallSaveProcedure`: `DataTableToXml` (95%), `ExecSPTrn` (78%; `ExecSP` 21%, see [save-flow.md](save-flow.md#saving-rules)), `UserId` (100%).
+
+## Not used
+
+(c) = `check_designer.py` on code-behind; with `--original` only added lines count.
+
+| Not used | Instead |
 | --- | --- |
-| `CallSelectProcedure` | `dbClient.GetDataSetFromSP`(79%), `userInfo.Orgdiv`(84%), `ymd.YYYYMMDD()`(67%), 예외는 `ShowMessageError(ee.Message)`(62%) |
-| `CallSaveProcedure` | `DataUtil.DataTableToXml`(95%), `dbClient.ExecSPTrn`(78%), `m_Editmode.ToString().ToUpper()`, `userInfo.Orgdiv`(97%), `userInfo.UserId`(100%), `devFnc.GetUserPCData()`(76%), 예외는 `ShowMessageError(ee.Message)`(76%) |
+| (c) `MessageBox.Show` (9 in 3 screens) | `ShowMessage…` (823 in 92 screens) |
+| Own `SqlConnection`/`SqlCommand` (0) | `dbClient` |
+| `DateTime….ToString("yyyyMMdd")` (0) | `ymd.YYYYMMDD()` |
+| `TextChanged`, `Leave`, `Validating` (0) | `EditValueChanged` |
+| (c) lambda/`delegate` subscriptions (3/0) | named handlers |
+| (c) `PostEditor()` / `CloseEditor()` / `UpdateCurrentRow()` before saving | nothing; the save path reads the DataTable (user corrected this 10+ times) |
+| (c) `P_Add`/`P_Edit`/`P_Save`/`P_Delete`/`P_Copy`/`P_Print = …` | toolbar permissions come from program registration (BA060T) |
+| (c) `ColumnFilterInfo` / `FilterInfo =` | `gvw.ActiveFilterString` as sibling screens do |
+| (c) `FocusedRowHandle = GetRowHandle(…)`/a number after search or add | `devFnc.GetGridRowIndex` restore only where siblings do it |
+| (c) column `MinWidth =` in code; `grp….Text =` in code | Designer values |
+| `BestFitColumns()` beyond the sibling pattern (`[확인]`) | after search as in the skeleton; skip it where the user asked for fixed widths |
 
-- `@USERIP`에는 `devFnc.GetUserPCData()`를 넘긴다(76%). `userInfo.UserIP`를 쓰는 화면(19%)도 있으므로 기존 화면을 고칠 때는 그 화면의 방식을 유지한다.
-- 저장 호출은 `ExecSPTrn`이 78%, 트랜잭션이 없는 `ExecSP`가 21%다. 어느 쪽을 쓰는지는 [screen-skeleton.md](screen-skeleton.md#이-골격에서-지킬-점).
-
-## 공통 메서드 사용 빈도
-
-많이 쓰는 순서다. 위쪽일수록 이 프로젝트의 기본 도구다.
-
-| 메서드 | 횟수 | 하는 일 |
-| --- | --- | --- |
-| `devFnc.Usr_ControlsProtect(컨트롤, bool)` | 418 | 컨테이너·그리드 편집 잠금(true)/해제(false) |
-| `syCode.BindingCode(코드구분, 컨트롤)` | 352 | 공통코드 콤보·Repository 목록 채우기 |
-| `devFnc.InitControl(컨테이너)` | 325 | 컨테이너 안 입력값 비우기 |
-| `CallCommand(BizCommand.…)` | 276 | 툴바 명령을 코드에서 실행 |
-| `gvw.BestFitColumns()` | 267 | 조회 후 열 폭 맞춤 |
-| `ShowMessage(…)` | 253 | 완료 안내 |
-| `ymd.YYYYMMDD()` | 246 | 날짜를 SP 인자용 8자리 문자열로 |
-| `ShowMessageWaring(…)` | 226 | 선택 없음 등 경고 |
-| `gvw.GetFocusedDataRow()` | 206 | 현재 행을 `DataRow`로 |
-| `ShowMessageError(…)` | 195 | 오류 표시 |
-| `ymd.SetToDay(n)` | 173 | 오늘 기준 n일 날짜 넣기 |
-| `DataUtil.DataTableToXml(표, 상태)` | 155 | 저장 XML 만들기 |
-| `gvw.GetRowCellValue` / `SetRowCellValue` | 152 / 123 | 셀 값 읽기 / 쓰기 |
-| `ShowMessageYesNO(…)` | 149 | 저장·삭제 확인 |
-| `gvw.GetDataRow(handle)` | 112 | 지정 행을 `DataRow`로 |
-| `ShowExcetion(ee)` | 108 | 예외 표시(일부 화면은 `ShowMessageError(ee.Message)` 대신 사용) |
-| `gvw.GetSelectedRows()` | 76 | 체크·선택한 행 핸들 목록 |
-| `devFnc.GetUserPCData()` | 64 | `@USERIP` 값 |
-| `gvw.DeleteSelectedRows()` | 59 | 선택 행을 Deleted 상태로 |
-| `devFnc.GetGridRowIndex(…)` | 35 | 재조회 후 이전 행 위치로 되돌리기 |
-| `devFnc.DataRowToPanel(행, 패널)` | 32 | 한 행을 패널 컨트롤에 표시 |
-| `syCode.BindingorgdivCode(코드구분, 사업장, 컨트롤)` | 31 | 사업장별 코드 목록 채우기 |
-| `devFnc.MasterToDataTable` / `dtMasterToDataTable` | 21 / 16 | 패널 값을 한 행짜리 DataTable로 |
-
-## 쓰지 않는 것
-
-같은 100개 화면에서 센 횟수다.
-
-| 쓰지 않는 것 | 횟수 | 대신 |
-| --- | --- | --- |
-| `MessageBox.Show` | 9 (3개 화면) | `ShowMessage`, `ShowMessageWaring`, `ShowMessageError`, `ShowMessageYesNO` (823회, 92개 화면) |
-| 직접 만든 `SqlConnection`·`SqlCommand` | 0 | `dbClient` |
-| `DateTime.….ToString("yyyyMMdd")` | 0 | `ymd.YYYYMMDD()` |
-| `TextChanged`, `Leave`, `Validating` 구독 | 0 | `EditValueChanged` |
-| 람다·`delegate`로 이벤트 구독 | 3 / 0 | 이름 있는 핸들러 메서드 |
-
-영역 전체의 편집 잠금은 `Usr_ControlsProtect`로 한다. 특정 버튼이나 입력란 하나만 상태에 따라 켜고 끌 때는 `.Enabled = …`(23개 화면)나 `.ReadOnly = …`(16개 화면)를 직접 쓴다.
+Whole-area locking is `Usr_ControlsProtect`. A single button or input toggled by state may set `.Enabled` (23 screens) or `.ReadOnly` (16) directly.

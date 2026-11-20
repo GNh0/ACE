@@ -1,19 +1,19 @@
-# KONE 프로젝트 공통 함수·SP
+# KONE project common functions and SPs
 
-C_KONE 계열 DB(C_KONE060, C_KONE110 등)에서 근호·KH 작성 SP가 자주 부르는 공통 개체다. 다른 DB에서는 같은 이름이 있는지, 인자가 같은지 먼저 확인한다. 공통 개체 자체는 요청 없이 고치지 않는다.
+Common objects that 근호/KH SPs call in C_KONE DBs (C_KONE060, C_KONE110 …). In other DBs first check the same name exists with the same arguments. Do not change the common objects themselves unless asked.
 
-| 개체 | 종류 | 쓰는 곳 |
+| Object | Kind | Used for |
 | --- | --- | --- |
-| `SP_XML_LOG_SAVE` | SP | 모든 SAVE의 첫 실행문 |
-| `SP_SYSTEM_BA100T_KEYCODE` | SP | 문서번호 채번 |
-| `RETURN_KEYCODE` | 테이블 함수 | 화면 표시 키를 복합키로 분해 |
-| `F_CHECK_CLOSE` | 스칼라 함수 | 년·월 마감 검증 |
-| `F_FIND_USERNM` | 스칼라 함수 | 사용자 이름 |
-| `F_BA011T_FIND_SUBNM` | 스칼라 함수 | 공통코드 이름. 기존 코드에만 있다. 새로 쓸 때는 `BA011T` JOIN |
+| `SP_XML_LOG_SAVE` | SP | First executable statement of every SAVE |
+| `SP_SYSTEM_BA100T_KEYCODE` | SP | Document numbering |
+| `RETURN_KEYCODE` | table function | Split a screen display key into the composite key |
+| `F_CHECK_CLOSE` | scalar function | Year/month closing check |
+| `F_FIND_USERNM` | scalar function | User name |
+| `F_BA011T_FIND_SUBNM` | scalar function | Common-code name. Only in existing code; new code JOINs `BA011T` |
 
 ## SP_XML_LOG_SAVE
 
-SAVE가 받은 XML을 기록한다. `SET NOCOUNT ON` 바로 다음에 둔다. XML 인자가 여러 개면 모두 넘긴다.
+Logs the XML a SAVE received. Put it right after `SET NOCOUNT ON`. Pass every XML argument.
 
 ```sql
 EXEC SP_XML_LOG_SAVE @@PROCID, @WORKTYPE, @USERID, @XML, @XMLDETAIL;
@@ -21,7 +21,7 @@ EXEC SP_XML_LOG_SAVE @@PROCID, @WORKTYPE, @USERID, @XML, @XMLDETAIL;
 
 ## SP_SYSTEM_BA100T_KEYCODE
 
-기준일별 다음 순번을 OUTPUT으로 돌려준다. 인자는 사업장, 테이블 구분, 기준일(YYYYMMDD), 순번(OUTPUT)이다. EXEC 인자에는 식을 쓸 수 없으므로 기준일과 순번은 변수로 둔다.
+Returns the next sequence per base date as OUTPUT. Arguments: business unit, table kind, base date (YYYYMMDD), sequence (OUTPUT). EXEC arguments cannot be expressions, so base date and sequence are variables.
 
 ```sql
 EXEC SP_SYSTEM_BA100T_KEYCODE @ORGDIV, 'BA100T', @DOCDT, @NEWSEQ OUTPUT;
@@ -29,15 +29,15 @@ EXEC SP_SYSTEM_BA100T_KEYCODE @ORGDIV, 'BA100T', @DOCDT, @NEWSEQ OUTPUT;
 SET @DOCNUM = @DOCDT + '-' + CONVERT(VARCHAR(10), @NEWSEQ);
 ```
 
-- 테이블 구분 값은 같은 업무의 기존 SAVE가 쓰는 값을 따른다.
-- 헤더 번호만 이 SP로 채번한다. 상세 순번은 INSERT 안에서 파생 MAX + `ROW_NUMBER()`로 매긴다.
-- 화면에서 순번을 계산해 넘기지 않는다.
-- **채번 테이블(`BA100T`)을 SP에서 직접 UPDATE·INSERT하지 않는다.** 번호는 항상 이 공통 SP로 받는다. 루프를 없애려고 채번 SP를 우회하지 않는다.
-- 한 번의 저장에서 문서번호가 여러 개 필요하면(행마다 다른 번호), 채번 `EXEC`만 도는 작은 루프를 쓴다. 이것은 "행 단위 루프 금지"의 예외다. 루프 안에는 채번 호출과 받은 번호를 스테이징에 적는 문장만 두고, 실제 INSERT·UPDATE·DELETE는 루프 밖에서 집합으로 한다. 답변에 이 루프를 남긴 이유를 적는다.
+- The table kind value follows the existing SAVE of the same business.
+- Only the header number comes from this SP. Detail sequences: derived MAX + `ROW_NUMBER()` inside the INSERT.
+- Do not compute sequences on the screen and pass them.
+- **Never UPDATE/INSERT the numbering table (`BA100T`) directly from an SP.** Numbers always come from this common SP. Do not bypass it to remove a loop.
+- If one save needs several document numbers (a different number per row), use a small loop that runs only the numbering `EXEC`. This is the exception to "no row-by-row loops": the loop holds only the numbering call and the statement recording the number into staging; the real INSERT/UPDATE/DELETE run set-based outside it. Say in the answer why the loop stays.
 
 ## RETURN_KEYCODE
 
-화면이 `20260129-1-11` 같은 표시용 키 하나를 넘길 때 `CODE`, `SEQ1`, `SEQ2`로 나눈다. 하이픈이 하나면 `SEQ2`는 NULL이다.
+Splits one display key like `20260129-1-11` from the screen into `CODE`, `SEQ1`, `SEQ2`. With one hyphen, `SEQ2` is NULL.
 
 ```sql
 DELETE A
@@ -57,17 +57,26 @@ WHERE A.ORGDIV = @ORGDIV
   AND B.GBN = 'DEL';
 ```
 
-- 키를 문자열로 이어 붙여 비교하지 않는다(`A.RECDT + '-' + CONVERT(…) = B.KEYCODE` 금지). 분해해서 구성 열 전부로 JOIN한다.
+- Never compare keys by concatenating strings (`A.RECDT + '-' + CONVERT(…) = B.KEYCODE`). Split and JOIN on all components.
 
 ## F_CHECK_CLOSE
 
-`F_CHECK_CLOSE(@ORGDIV, 업무구분, 년월구분, 대상기간, '1')`은 마감 여부를 돌려준다.
+`F_CHECK_CLOSE(@ORGDIV, module, period kind, period, '1')` returns the closing state.
 
-- 업무구분: `'MA'`(자재) 등 업무 모듈 코드. 같은 업무의 기존 SAVE가 쓰는 값을 따른다.
-- 년월구분: `'1'` 년마감(대상기간은 `LEFT(일자, 4)`), `'2'` 월마감(대상기간은 `LEFT(일자, 6)`).
-- 반환: `''` 마감 정보 없음, `'Y'` 마감 완료, 그 밖은 처리 가능.
+- Module: business module code such as `'MA'` (materials). Follow the existing SAVE of the same business.
+- Period kind: `'1'` year closing (period `LEFT(date, 4)`), `'2'` month closing (period `LEFT(date, 6)`).
+- Returns `''` no closing info, `'Y'` closed, anything else = may proceed.
 
-수불에 영향을 주는 SAVE는 쓰기 전에 네 가지를 차례로 검증한다. 메시지와 `16, 9`는 기존 SAVE와 같게 쓴다.
+A SAVE affecting stock checks these four in order before writing, with the same messages and `16, 9` as existing SAVEs:
+
+| Call | Result | Message |
+| --- | --- | --- |
+| `F_CHECK_CLOSE(@ORGDIV, 'MA', '1', LEFT(A.OUTDT, 4), '1')` | `''` | `년마감 정보가 없습니다. 년/월마감 프로그램에서 년마감 정보를 생성한 후 처리 가능합니다.` |
+| same | `'Y'` | `년 마감이 완료되었습니다. 년/월마감 프로그램에서 년마감 해제 후 처리 가능합니다.` |
+| `F_CHECK_CLOSE(@ORGDIV, 'MA', '2', LEFT(A.OUTDT, 6), '1')` | `''` | `월마감 정보가 없습니다. 년/월마감 프로그램에서 월마감 정보를 생성한 후 처리 가능합니다.` |
+| same | `'Y'` | `월 마감이 완료되었습니다. 년/월마감 프로그램에서 월마감 해제 후 처리 가능합니다.` |
+
+Each is one block of this form:
 
 ```sql
 IF EXISTS (
@@ -79,57 +88,23 @@ BEGIN
     RAISERROR('년마감 정보가 없습니다. 년/월마감 프로그램에서 년마감 정보를 생성한 후 처리 가능합니다.', 16, 9);
     RETURN;
 END
-
-IF EXISTS (
-           SELECT 1
-           FROM @TMP_DETAIL A
-           WHERE DBO.F_CHECK_CLOSE(@ORGDIV, 'MA', '1', LEFT(A.OUTDT, 4), '1') = 'Y'
-          )
-BEGIN
-    RAISERROR('년 마감이 완료되었습니다. 년/월마감 프로그램에서 년마감 해제 후 처리 가능합니다.', 16, 9);
-    RETURN;
-END
-
-IF EXISTS (
-           SELECT 1
-           FROM @TMP_DETAIL A
-           WHERE DBO.F_CHECK_CLOSE(@ORGDIV, 'MA', '2', LEFT(A.OUTDT, 6), '1') = ''
-          )
-BEGIN
-    RAISERROR('월마감 정보가 없습니다. 년/월마감 프로그램에서 월마감 정보를 생성한 후 처리 가능합니다.', 16, 9);
-    RETURN;
-END
-
-IF EXISTS (
-           SELECT 1
-           FROM @TMP_DETAIL A
-           WHERE DBO.F_CHECK_CLOSE(@ORGDIV, 'MA', '2', LEFT(A.OUTDT, 6), '1') = 'Y'
-          )
-BEGIN
-    RAISERROR('월 마감이 완료되었습니다. 년/월마감 프로그램에서 월마감 해제 후 처리 가능합니다.', 16, 9);
-    RETURN;
-END
 ```
 
-- 검증하는 일자는 실제로 수불이 잡히는 일자다(입고일, 출고일 등). 수정이면 바뀌기 전 일자와 바뀐 뒤 일자가 다를 수 있는지 확인한다.
+- The checked date is the date the stock movement is booked on (receipt date, issue date …). For edits, check whether the date before and after the change can differ.
 
-## 이름 조회 (사용자 이름은 함수, 공통코드 이름은 JOIN)
+## Name lookup
 
-둘을 다르게 쓴다.
+User name by function, common-code name by JOIN:
 
-| 가져오는 이름 | 방법 |
+| Name | Method |
 | --- | --- |
-| 사용자 이름(등록자·수정자·담당자 등) | **함수** `DBO.F_FIND_USERNM(사용자ID)` |
-| 공통코드 이름(공정명, 구분명 등) | **JOIN** `BA011T`. `F_BA011T_FIND_SUBNM`은 새로 쓰지 않는다. |
+| User name (registrant, modifier, person in charge …) | **Function** `DBO.F_FIND_USERNM(user ID)` |
+| Common-code name (process name, kind name …) | **JOIN** `BA011T`. Do not newly use `F_BA011T_FIND_SUBNM` |
 
 ```sql
 SELECT A.DOCNUM
-     , A.PROCCD
      , B.SUBNM AS PROCNM
-     , A.REGEMPNO
      , DBO.F_FIND_USERNM(A.REGEMPNO) AS REGEMPNM
-     , A.MODEMPNO
-     , DBO.F_FIND_USERNM(A.MODEMPNO) AS MODEMPNM
 FROM DOC_HEADER A
         LEFT OUTER JOIN BA011T B
                      ON B.MAINCD = 'PR001'
@@ -137,20 +112,11 @@ FROM DOC_HEADER A
 WHERE A.ORGDIV = @ORGDIV
 ```
 
-- 공통코드 이름은 `BA011T`를 `MAINCD = '코드구분'`과 코드 값으로 LEFT OUTER JOIN한다. PK가 `(MAINCD, SUBCD)`라서 JOIN해도 행이 늘지 않는다. 코드 구분이 여러 개면 구분마다 한 번씩 JOIN하고 별칭을 나눈다(`B`, `B1`).
-- 사용자 이름은 등록자·수정자처럼 한 조회에 여러 번 나온다. 이름마다 JOIN을 붙이면 같은 테이블이 여러 번 들어가므로 **화면에 뿌리는 최종 결과**에서는 함수를 쓴다.
-- **함수는 JOIN보다 느리다.** 그래서 함수는 **가장 바깥 SELECT 목록**에서만, 최종 결과 행(보통 수천~수만 건)에 대해 쓴다. 대량 테이블을 훑는 파생 테이블 안, 집계 전 단계, WHERE·GROUP BY·ORDER BY에는 쓰지 않는다. 수십만 건을 그대로 돌려주거나 집계하는 조회(수불장, 현황 집계 등)에서는 사용자 이름도 JOIN으로 가져온다.
-- 사용자 이름을 JOIN할 때는 행 수를 확인한다. `BA095T`의 PK는 `(USERID, PRSNNUM)`이다. 지금은 `USERID`가 중복 없이 한 건씩이지만 PK가 보장하지는 않는다.
-- JOIN이 필요한 다른 경우: 사용자 테이블의 다른 열이 함께 필요할 때, 사업장(`ORGDIV`)까지 맞춰야 할 때. `F_FIND_USERNM`은 사용자 ID만으로 찾고 사업장 조건이 없다.
-- 기존 SP에 있는 함수 호출이나 JOIN은 요청 없이 서로 바꾸지 않는다.
+- LEFT OUTER JOIN `BA011T` on `MAINCD = 'code kind'` and the code value. PK is `(MAINCD, SUBCD)`, so rows do not multiply. Several code kinds: one JOIN per kind with separate aliases (`B`, `B1`).
+- User names appear several times per query (registrant, modifier). A JOIN per name repeats the same table, so the **final result shown on screen** uses the function.
+- **The function is slower than a JOIN.** Use it only in the **outermost SELECT list**, on final result rows (usually thousands to tens of thousands). Never inside derived tables scanning large tables, before aggregation, or in WHERE/GROUP BY/ORDER BY. Queries returning or aggregating hundreds of thousands of rows (stock ledger, status totals) JOIN user names too.
+- When JOINing user names check row counts. `BA095T`'s PK is `(USERID, PRSNNUM)`; `USERID` is unique today but the PK does not guarantee it.
+- Also JOIN when other user-table columns are needed or the business unit (`ORGDIV`) must match; `F_FIND_USERNM` searches by user ID only.
+- Do not swap existing function calls and JOINs unless asked.
 
-실측(C_KONE110, SQL Server 2019, 2026-11-20, 입고 테이블 약 58만 건 전체에 이름 1개):
-
-| 방법 | 걸린 시간 |
-| --- | --- |
-| JOIN | 약 0.08초 |
-| 함수(인라인 적용, 기본 상태) | 약 1.1초 |
-| 함수 2개(등록자 + 수정자) | 약 2.3초 (JOIN 2개는 약 0.09초) |
-| 함수(인라인 끔) | 약 13.7초 |
-
-1,000건만 가져올 때는 함수와 JOIN 모두 0.2~0.3초로 차이가 없었다. 인라인이 안 되는 서버(2017 이하, 또는 `SYS.SQL_MODULES.IS_INLINEABLE = 0`)에서는 함수가 훨씬 느리므로 JOIN을 기본으로 한다.
+Measured (C_KONE110, SQL Server 2019, 2026-11-20, one name over all ~580k receipt rows): JOIN ~0.08 s; function (inlined, default) ~1.1 s; two functions (registrant + modifier) ~2.3 s vs two JOINs ~0.09 s; function with inlining off ~13.7 s. For 1,000 rows both took 0.2–0.3 s. On servers without inlining (2017 or older, or `SYS.SQL_MODULES.IS_INLINEABLE = 0`) the function is far slower, so JOIN is the default there.

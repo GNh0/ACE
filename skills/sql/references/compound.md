@@ -1,107 +1,107 @@
-# 교정 기록 쌓기 (Compound)
+# Building up lessons (Compound)
 
-> 이 문서는 sql·csharp·pb 세 스킬에 똑같이 있다. 스킬 폴더는 설치될 때 혼자 완결되어야 하기 때문이다. 세 사본은 스킬 이름과 경로만 다르고 나머지 글자는 같아야 한다. 고칠 때는 셋을 함께 고친다.
+> This file exists identically in the sql, csharp and pb skills, because each skill folder must be self-contained when installed. Keep the three copies in sync; only the skill name and paths differ.
 
-교정은 두 단계로 쌓는다. 어느 세션에서든 바로 반영되는 **로컬 기록**과, 사용자가 요청할 때 저장소에 옮기는 **승격**이다.
+Corrections build up in two steps: the **local record**, which every session picks up at once, and **promotion** into the repository, only when the user asks.
 
-## 두 곳의 기록
+## Two records
 
-| 기록 | 위치 | 언제 바뀌나 |
+| Record | Location | When it changes |
 | --- | --- | --- |
-| 플러그인 기록 | 이 스킬의 [lessons.md](lessons.md) | 승격할 때만. 설치된 플러그인 폴더(`~/.claude/plugins/cache/…`)는 업데이트 때 덮어써지므로 거기에 쓰지 않는다 |
-| 로컬 기록 | `~/.claude/ace/lessons/sql.md` (Windows: `%USERPROFILE%\.claude\ace\lessons\sql.md`) | 교정을 받을 때마다 즉시. 플러그인 업데이트에 지워지지 않는다 |
+| Plugin record | this skill's [lessons.md](lessons.md) | Only on promotion. Never write into the installed plugin folder (`~/.claude/plugins/cache/…`); updates overwrite it |
+| Local record | `~/.claude/ace/lessons/sql.md` (Windows: `%USERPROFILE%\.claude\ace\lessons\sql.md`) | Immediately on every correction. Plugin updates do not erase it |
 
-## 시작할 때 읽기
+## Reading at start
 
-1. 플러그인의 [lessons.md](lessons.md)를 읽는다.
-2. 로컬 기록 `~/.claude/ace/lessons/sql.md`를 읽는다. 파일이 없으면 넘어간다.
-3. 둘이 다르면 **로컬이 최신**이므로 로컬을 따른다.
+1. Read the plugin's [lessons.md](lessons.md).
+2. Read the local record `~/.claude/ace/lessons/sql.md`; skip if missing.
+3. If they differ, **the local one is newer**; follow it.
 
-이번 작업에 해당하는 항목은 SKILL.md와 reference의 규칙보다 우선한다.
+Entries that apply to this task override the rules in SKILL.md and the references.
 
-## 로컬 기록에 적기
+## Writing to the local record
 
-### 언제 적나
+### When
 
-| 적는다 | 적지 않는다 |
+| Write | Do not write |
 | --- | --- |
-| 사용자가 결과를 교정했다: 틀렸다고 지적, 같은 말을 다시 함, 방식을 바꾸라고 함 | 이번 작업에만 해당하는 요구(특정 열 이름, 이번만의 예외) |
-| 검증([verify.md](verify.md))의 실행이나 대조에서 실패·어긋남이 나왔고, 원인이 규칙에 없거나 규칙이 틀려서다 | 사용자가 틀렸다고 하지 않은 내 추측 |
+| The user corrected the result: said it is wrong, repeated an instruction, asked for another approach | Requirements for this task only (a specific column name, a one-off exception) |
+| Verification ([verify.md](verify.md)) runs or comparisons failed or disagreed, because a rule was missing or wrong | My own guesses the user did not call wrong |
 
-### 어떻게 적나
+### How
 
-1. 먼저 결과를 고친다.
-2. 플러그인 lessons.md와 로컬 파일에서 같은 내용을 찾는다.
-   - 있으면 새로 만들지 않고 그 항목을 고친다. 플러그인 쪽 항목이면 고친 버전을 로컬에 적는다(같은 제목을 쓰고 `플러그인 항목 수정`이라고 적는다).
-   - 없으면 로컬 파일 맨 아래에 추가한다.
-3. 폴더나 파일이 없으면 만든다. 새 파일은 첫 줄에 `# SQL 로컬 교정 기록`을 쓴다.
-4. **묻지 않고** 적는다. 답변에 한 줄로 알린다: `교정 기록에 추가: <제목>` (고쳤으면 `교정 기록 수정: <제목>`).
-5. 사용자가 이 대화에서 파일을 만들거나 고치지 말라고 했으면 로컬 기록 파일에 쓰지 않는다. 적었을 항목을 답변에 그대로 보여 주고, 저장하지 않았다고 적는다.
+1. Fix the result first.
+2. Look for the same content in the plugin lessons.md and the local file.
+   - If found, edit that entry instead of adding one. For a plugin entry, write the edited version locally (same title, marked `플러그인 항목 수정`).
+   - Otherwise append to the end of the local file.
+3. Create the folder or file if missing. A new file starts with `# SQL local lessons`.
+4. Write it **without asking**. Tell the user in one line: `교정 기록에 추가: <제목>` (when edited: `교정 기록 수정: <제목>`).
+5. If the user said in this conversation not to create or change files, do not write the local file. Show the entry in the answer and say it was not saved.
 
-### 항목 형식
-
-```
-## <짧은 제목> (YYYY-MM-DD, <프로젝트·대상>)
-- 실수: <무엇을 잘못했나>
-- 규칙: <앞으로 어떻게 하나>
-- 범위: 모든 프로젝트 / <프로젝트> 프로젝트만
-- 근거: <사용자가 한 말의 요지 한 줄, 또는 검증(실행·대조)에서 나온 실패·어긋남>
-```
-
-예(스킬마다 하나씩, csharp·pb는 가상):
+### Entry format
 
 ```
-## 삭제 확인은 0건이 보이게 센다 (2026-11-20, C_KONE120 MA100500)
-- 실수: 롤백 테스트의 삭제 확인을 GROUP BY 건수로 셌더니 지워진 문서가 결과에서 사라져 "0건"이 보이지 않았다.
-- 규칙: 확인할 키를 VALUES로 두고 LEFT OUTER JOIN으로 센다.
-- 범위: 모든 프로젝트
-- 근거: 실행 검증에서 삭제 시나리오 결과에 테스트 문서 행이 없었음
+## <short title> (YYYY-MM-DD, <project/target>)
+- Mistake: <what went wrong>
+- Rule: <what to do from now on>
+- Scope: all projects / <project> only
+- Evidence: <gist of what the user said, or the failure/mismatch from verification>
 ```
 
+Examples (one per skill; csharp and pb are fictional):
+
 ```
-## 상세 XML의 TableName은 SAVE의 경로에서 가져온다 (2026-11-20, C_KONE120 XX000100)
-- 실수: 상세 DataTable의 TableName을 화면 그리드 이름으로 넣어 SAVE의 `/ROOT/DOC_DETAIL`과 달랐다. 상세가 저장되지 않았다.
-- 규칙: TableName은 SAVE SP의 `OPENXML` 경로를 읽고 그 이름을 그대로 쓴다. 계약 대조표에 두 줄 번호를 적는다.
-- 범위: 모든 프로젝트
-- 근거: 사용자가 "상세가 안 들어간다"고 지적
+## Count deletions so 0 rows are visible (2026-11-20, C_KONE120 MA100500)
+- Mistake: the rollback test counted deletions with GROUP BY, so the deleted document vanished from the result and "0" never showed.
+- Rule: put the keys to check in VALUES and count with LEFT OUTER JOIN.
+- Scope: all projects
+- Evidence: in the execution check the delete scenario had no row for the test document
 ```
 
 ```
-## itemchanged의 계산도 매핑 목록에 넣는다 (2026-11-20, 발주 화면 w_pur_order)
-- 실수: DataWindow의 itemchanged 이벤트에서 금액을 다시 계산하던 코드를 매핑 목록에 넣지 않아 C# 화면에서 빠졌다.
-- 규칙: 원본↔결과 매핑에 DW 이벤트(itemchanged, itemfocuschanged, updatestart)를 하나씩 적고 대상 위치(파일·줄)를 붙인다.
-- 범위: 모든 프로젝트
-- 근거: 사용자가 "수량 바꾸면 금액이 안 바뀐다"고 지적
+## Take the detail XML TableName from the SAVE path (2026-11-20, C_KONE120 XX000100)
+- Mistake: set the detail DataTable's TableName to the grid name, which differed from the SAVE's `/ROOT/DOC_DETAIL`; details were not saved.
+- Rule: read the SAVE SP's `OPENXML` path and use that name as is. Put both line numbers in the contract table.
+- Scope: all projects
+- Evidence: user: "상세가 안 들어간다"
 ```
 
-- 규칙은 다음 작업에서 그대로 따를 수 있게 쓴다. "주의한다"가 아니라 "무엇을 한다/하지 않는다"로 쓴다.
-- 근거에는 사용자의 말을 그대로 옮기지 말고 요지만 적는다.
+```
+## Put itemchanged calculations in the mapping list (2026-11-20, purchase order screen w_pur_order)
+- Mistake: the amount recalculation in the DataWindow itemchanged event was not in the mapping list, so the C# screen lost it.
+- Rule: list DW events (itemchanged, itemfocuschanged, updatestart) one by one in the source↔result mapping with the target location (file:line).
+- Scope: all projects
+- Evidence: user: "수량 바꾸면 금액이 안 바뀐다"
+```
 
-## 승격 (저장소에 반영)
+- Write rules that the next task can follow as is: "do / do not", not "be careful".
+- Evidence carries the gist; quote the user only briefly.
 
-### 언제
+## Promotion (into the repository)
 
-- 사용자가 "교정 기록 정리해줘", "ACE에 반영해줘"라고 할 때 한다.
-- 로컬 항목이 10개를 넘으면 답변 끝에 정리를 **제안만** 한다. 사용자가 요청하기 전에는 하지 않는다.
+### When
 
-### 규칙마다 자리는 하나
+- When the user says "교정 기록 정리해줘" or "ACE에 반영해줘".
+- When local entries exceed 10, only **propose** cleanup at the end of the answer. Do nothing until the user asks.
 
-같은 규칙을 여러 문서에 다른 말로 적으면 고칠 때 사본끼리 어긋난다. 그래서 문서마다 맡는 것이 다르다.
+### One home per rule
 
-| 문서 | 맡는 것 |
+The same rule written differently in several documents drifts apart when edited, so each document owns something different.
+
+| Document | Owns |
 | --- | --- |
-| reference 문서(서식, 저장 등 주제별) | 규칙의 자리. 전체 문장, 예시, 예외 |
-| SKILL.md | 작업 순서와 볼 문서, 절대 깨면 안 되는 규칙의 한 줄 목록. 줄마다 규칙 이름을 구체적으로 쓰고 자리로 링크한다 |
-| lessons.md | 실수 기록. 제목, 날짜, `실수:` 줄, 한 문장과 자리 링크로 된 `규칙:` 줄 |
+| reference documents (layout, SAVE, … by topic) | The rule's home: full text, examples, exceptions |
+| SKILL.md | Task order and documents to read, plus a one-line list of never-break rules, each naming the rule concretely and linking to its home |
+| lessons.md | Mistake record: title, date, `Mistake:` line, `Rule:` line of one sentence plus home link |
 
-### 절차
+### Steps
 
-1. ACE 저장소(GNh0/ACE)의 로컬 경로를 확인한다. 모르면 사용자에게 묻는다.
-2. 로컬 항목을 저장소의 `skills/sql/references/lessons.md` 해당 주제 소제목 아래로 옮긴다. 다른 스킬 이름의 로컬 파일도 있으면 함께 본다.
-3. 규칙의 전체 내용은 위 표대로 그 규칙의 자리(reference 문서)에 쓰거나 고친다. lessons.md 항목의 `규칙:`은 한 문장과 자리 링크로 줄인다. 절대 깨면 안 되는 규칙이면 SKILL.md 목록에 한 줄과 링크를 더한다.
-4. 중복·낡은 항목을 정리한다. 다른 문서가 lessons.md의 제목을 앵커로 가리키면 링크를 함께 고친다.
-5. `.claude-plugin/plugin.json`과 `marketplace.json`의 버전을 올리고 커밋한다.
-6. `main`과 `release`에 푸시한다. 푸시는 사용자가 정리를 요청했을 때만 한다.
-7. 설치된 플러그인을 업데이트한다(`/plugin marketplace update gnho-labs` 후 플러그인 업데이트).
-8. 저장소로 옮긴 로컬 항목을 로컬 파일에서 지운다. 옮기지 않은 항목은 남긴다.
-9. 답변에 옮긴 항목, reference로 올린 규칙, 지운 항목, 새 버전을 적는다.
+1. Find the local path of the ACE repository (GNh0/ACE). Ask the user if unknown.
+2. Move local entries under the matching topic heading of the repository's `skills/sql/references/lessons.md`. Also check local files of the other skills.
+3. Write or fix the rule's full content in its home (reference document) per the table above. Shorten the lessons.md `Rule:` to one sentence plus home link. A never-break rule also gets one line and a link in the SKILL.md list.
+4. Clean up duplicate and stale entries. If other documents link to a lessons.md title as an anchor, fix those links too.
+5. Bump the version in `.claude-plugin/plugin.json` and `marketplace.json` and commit.
+6. Push to `main` and `release`, only when the user asked for the cleanup.
+7. Update the installed plugin (`/plugin marketplace update gnho-labs`, then update the plugin).
+8. Delete the moved entries from the local file; keep the others.
+9. In the answer list moved entries, rules raised into references, deleted entries and the new version.

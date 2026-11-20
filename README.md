@@ -1,43 +1,44 @@
 # ACE
 
-SQL Server 프로시저, WinForms/DevExpress 화면, PowerBuilder 이관을 사용자 방식대로 작업하게 하는 Claude Code 플러그인입니다.
+A Claude Code plugin that makes SQL Server procedures, WinForms/DevExpress screens and PowerBuilder migrations follow the user's own way of working.
 
-## 구성
+## Skills
 
-| 스킬 | 용도 |
+| Skill | For |
 | --- | --- |
-| `sql` | 쿼리·조회 SP·저장 SP 작성, 정리, 검토 |
-| `csharp` | WinForms/DevExpress 화면, Designer, 그리드, 보고서 |
-| `pb` | PBL 내보내기, DataWindow 분석, C#/SQL 이관 |
+| `sql` | Writing, cleaning up and reviewing queries, SELECT SPs and SAVE SPs |
+| `csharp` | WinForms/DevExpress screens, Designer, grids, reports |
+| `pb` | PBL export, DataWindow analysis, migration to C#/SQL |
 
-각 스킬은 같은 틀을 씁니다.
+Every skill has the same shape:
 
-- `SKILL.md`: 시작 전에 할 일, 항상 지키는 규칙, 끝내기 전 자체 점검
-- `references/`: 규칙의 자세한 형태와 예시 코드
-- `references/verify.md`: **검증(EDD)**. 끝내기 전 시나리오 표의 근거를 만드는 법입니다.
-  - `sql`: 실행할 수 있으면 실행이 기본입니다. 개발 DB에서 조회는 원본과 새 조회문을 같은 인자로 비교하고, 저장은 트랜잭션 안에서 신규·왕복·혼합 수정·검증 실패·삭제를 돌린 뒤 전부 롤백합니다. 운영 DB이거나 모르면 실행하지 않고 이유를 적습니다.
-  - `csharp`: 화면 호출 ↔ SP 계약(인자, `@WORKTYPE`, XML TableName, 행 상태, 결과표 순서, FieldName)을 파일·줄 번호로 대조합니다.
-  - `pb`: 원본(PB)↔결과 매핑 목록에 양쪽 파일·줄 번호를 붙입니다.
-- `references/compound.md`와 `lessons.md`: **교정 기록(Compound)**. 두 단계로 쌓습니다.
-  - 로컬 기록: 교정을 받으면 묻지 않고 `~/.claude/ace/lessons/<스킬>.md`에 적습니다. 플러그인 업데이트에 지워지지 않고 다음 세션부터 바로 읽힙니다.
-  - 승격: 사용자가 "교정 기록 정리해줘"라고 하면 로컬 항목을 이 저장소의 `lessons.md`로 옮기고, 굳어진 규칙은 해당 reference로 올린 뒤 버전을 올려 배포합니다.
-  - 스킬은 시작할 때 플러그인 `lessons.md`와 로컬 기록을 둘 다 읽고, 다르면 로컬을 따릅니다.
+- `SKILL.md`: how to read (open only the needed reference, one at a time — a combined dump gets truncated), what to do first, always-keep rules, the self-check before finishing. Kept under 5,000 characters so it is read whole.
+- `references/`: the full rules and example code, split by task so a typical task reads SKILL.md, lessons and at most three references.
+- `references/verify*.md`: **verification (EDD)** — how to build the evidence for the final scenario table.
+  - `sql`: run when possible. On a dev DB, SELECTs compare the old and new query with the same arguments; SAVEs run new/round-trip/mixed edit/failed validation/delete inside a transaction and roll everything back. Production or unknown DB: don't run, write the reason.
+  - `csharp`: compare screen calls with the SP contract (arguments, `@WORKTYPE`, XML TableName, row states, result order, FieldName) with file and line numbers.
+  - `pb`: a source (PB) ↔ result mapping list with file:line on both sides.
+- `references/compound.md` and `lessons.md`: **corrections (Compound)** in two steps.
+  - Local record: on a correction the model writes to `~/.claude/ace/lessons/<skill>.md` without asking. Plugin updates don't erase it; the next session reads it.
+  - Promotion: when the user says "교정 기록 정리해줘", local entries move into this repository's `lessons.md`, settled rules go to their reference, and a new version is released.
+  - At start a skill reads both the plugin `lessons.md` and the local record; the local one wins.
 
-별도 서브에이전트는 두지 않습니다. 메인 에이전트가 스킬을 직접 읽고 작업과 자체 점검까지 수행합니다. 다만 문서만으로는 지켜지지 않는 것이 있어서(모델마다 서식·금지 규칙을 지키는 정도가 다르고, 실행 검증 대신 정적 대조로 표를 채웠다) `sql`에 작은 스크립트 둘과 훅 하나를 둡니다.
+There are no subagents: the main agent reads the skill, does the work and the self-check. Some rules are not kept from documents alone (models differ in how well they follow layout and prohibition rules, and filled tables with static guesses instead of runs). **When a rule exists but is not followed, it becomes a mechanical check instead of more prose.** So there are small scripts and one hook:
 
-| 파일 | 하는 일 | 하지 않는 일 |
+| File | Does | Does not |
 | --- | --- | --- |
-| `skills/sql/scripts/check_sql.py` | 확실히 판정할 수 있는 서식·금지 규칙(트랜잭션, 잠금 힌트, 120자, INSERT 격자, 대문자 등)을 검사해 실패한 줄 번호와 `ACE-CHECK: PASS/FAIL n/m`을 출력합니다 | 업무 뜻 주석, 요청에 없는 검증, EDIT 처리 방식처럼 판단이 필요한 항목은 보지 않습니다. 그건 SKILL.md의 표로 직접 확인합니다 |
-| `skills/sql/scripts/make_rollback_test.py` | SP 정의에서 인자·XML 경로·`WITH` 열·WORKTYPE·대상 테이블을 뽑아 저장 롤백 테스트 배치 초안을 만듭니다 | 실행하지 않습니다. 원천 데이터와 키는 `-- TODO:`로 남깁니다 |
-| `hooks/ace_stop_check.py` (Stop·SubagentStop) | 이번 요청에서 `sql` 스킬로 SP를 쓰거나 적용했는데 실행 검증 흔적(롤백 테스트, `EXCEPT` 비교)도 `실행 검증: 하지 않음 - <이유>`도 없거나, 쓴 SP 파일이 `check_sql.py`에 실패하면 끝내기 전에 한 번 막고 이유를 줍니다 | 컨텍스트에 안내 문구를 끼워 넣지 않습니다. 문제없으면 아무것도 출력하지 않습니다. 같은 종료에서 두 번 막지 않고(`stop_hook_active`), 훅 오류로 작업을 막지 않습니다 |
+| `skills/sql/scripts/check_sql.py` | Checks the layout and prohibition rules that can be judged reliably (transactions, lock hints, 120 chars, INSERT grid, uppercase …) and prints failing line numbers and `ACE-CHECK: PASS/FAIL n/m` | Business comments, unrequested validation, EDIT handling — judgement calls stay in SKILL.md |
+| `skills/sql/scripts/make_rollback_test.py` | Drafts a rollback test batch from the SP definition (arguments, XML path, `WITH` columns, WORKTYPE, target tables) | Never runs it; source data and keys stay `-- TODO:` |
+| `skills/csharp/scripts/check_designer.py` | `*.Designer.cs`: label alignment, default sizes and "shrunk to one width", overlap, height 25, prefixes and default names, `grd/gvw/col` naming, required block lines, column appearance, `rpsSpin`/`rpscbo` on numeric/code columns, footer count, `+=` in `InitializeComponent`; with `--original`, changed properties of existing controls as `[확인]`. Other `.cs`: added `CloseEditor`/`UpdateCurrentRow`, `P_*` flags, `FilterInfo`, forced focus, `MinWidth`, `grp….Text`, `MessageBox`, lambda subscriptions, brace-less ifs. Default sizes come from the project's `KoneLib.Control` source | Choices that need the screen (a grid's role, whether a size comes from the named reference) are reported as `[확인]` |
+| `hooks/ace_stop_check.py` (Stop, SubagentStop) | `sql`: blocks once if an SP was written or applied with neither execution evidence (rollback test, `EXCEPT` comparison) nor `실행 검증: 하지 않음 - <이유>`, or if the SP file fails `check_sql.py`. `csharp`: blocks once if a written `.cs` fails `check_designer.py` (the original comes from the transcript, so only this request's changes count) | Never injects reminder text; prints nothing when fine; never blocks twice for the same stop (`stop_hook_active`); a hook error never blocks work |
 
-훅은 환경 변수 `ACE_HOOK=off`로 끕니다. 이전 KH 플러그인은 큰 체커와 매번 문구를 넣는 훅 때문에 일보다 훅을 상대하게 됐습니다. 그래서 훅은 이 하나만 두고, 스크립트는 각각 300줄 안쪽의 표준 라이브러리 Python으로 유지합니다.
+Turn the hook off with `ACE_HOOK=off`. **Hooks run only in Claude Code.** In other hosts (Codex and others) nothing runs automatically, so each SKILL.md contains the exact checker command and the `ACE-CHECK` line the model must paste. The older KH plugin grew a large checker and a hook that injected text every turn, and work turned into fighting the hook; so there is one hook, and each script is a single standard-library Python file (`check_designer.py` is the largest, about 460 lines, because it covers Designer and code-behind).
 
-## 규칙 고치기
+## Changing rules
 
-규칙은 `SKILL.md`나 `references/*.md` 한 곳에만 씁니다. 같은 규칙을 여러 파일에 중복해서 적지 않습니다. 예외로 "작업 파일과 정리"는 각 스킬이 혼자서도 완결되도록 세 SKILL.md에 같은 내용을 둡니다. 고칠 때는 셋을 함께 고칩니다. `compound.md`도 스킬 이름과 예시만 다르고 세 스킬에 같은 내용으로 두므로 함께 고칩니다. 교정은 먼저 로컬 기록에 쌓이고, 승격할 때 `lessons.md`로 옮긴 뒤 일반 규칙으로 굳어지면 해당 reference로 옮깁니다. 절차는 각 스킬의 `references/compound.md`에 있습니다.
+Write a rule in one place only (`SKILL.md` or one `references/*.md`). Exception: "Work files and cleanup" is identical in the three SKILL.md files so each skill stands alone, and `compound.md` is identical in the three skills except the skill name and paths; change them together. Corrections go to the local record first, move into `lessons.md` on promotion, and become reference rules once settled. Procedure: each skill's `references/compound.md`.
 
-## 설치
+## Install
 
 ```
 /plugin marketplace add GNh0/ACE

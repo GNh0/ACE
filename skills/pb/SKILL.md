@@ -3,59 +3,56 @@ name: pb
 description: PowerBuilder PBL·DataWindow·이벤트를 분석하거나 WinForms/DevExpress와 SQL Server로 이관한다. PB·PBL·데이터윈도우 분석, PBL 내보내기, C# 이관·전환 요청에 사용한다.
 ---
 
-# PB 분석·이관
+# PB analysis and migration
 
-이 스킬은 메인 에이전트가 직접 따른다. 별도 에이전트에 넘기지 않는다.
+필요한 참조 문서만 하나씩 연다. 여러 문서를 한 번에 출력하지 않는다(잘린다).
 
-## 시작 전에
+Reply to the user in Korean. Follow it yourself, don't delegate.
 
-1. 교정 기록을 읽는다. 플러그인의 [lessons.md](references/lessons.md)와 로컬 기록 `~/.claude/ace/lessons/pb.md`(없으면 넘어간다) 둘 다다. 둘이 다르면 로컬이 최신이다. 해당하는 항목은 아래 규칙보다 우선한다. [compound.md](references/compound.md)
-2. 정확한 PBL·객체, 상속 기반 클래스, 연결된 DataWindow, 실제 이벤트·SQL·보고서 관계를 먼저 읽는다. 내보내기 파일만 받았으면 그 범위 안에서만 말하고, 읽지 않은 PBL 전체를 분석했다고 하지 않는다.
-3. 필요한 문서만 읽는다.
+## Start
 
-| 할 일 | 볼 문서 |
+1. Read [lessons](references/lessons.md) and `~/.claude/ace/lessons/pb.md` (newer); they override rules.
+2. First read the exact PBL/object, ancestor classes, linked DataWindows, real events, SQL and report links. With only exported files, speak only within them; never claim to have analyzed PBLs you did not read.
+3. Writing C#: also follow the **csharp skill**; SQL: the **sql skill**. For migrated code, take layout and behavior from the PB screen and writing style from sibling screens in the target project.
+
+| Task | Read |
 | --- | --- |
-| PBL에서 소스 꺼내기 | [orca.md](references/orca.md) |
-| DataWindow·화면 매핑, C# 그리드 생성 | [datawindow.md](references/datawindow.md) |
-| SELECT/SAVE·C# 호출 이관, 결과 검증 | [migration.md](references/migration.md) |
+| Export source from a PBL | [orca](references/orca.md) |
+| DataWindow/screen mapping, C# grid from a DW | [datawindow](references/datawindow.md) |
+| SELECT/SAVE and C# call migration | [migration](references/migration.md) |
+| Source↔result mapping (analysis or migration) | [verify](references/verify.md) |
 
-4. C#을 만들거나 고치면 **csharp 스킬**을, SQL을 만들거나 고치면 **sql 스킬**을 함께 따른다. 이관 대상의 작성 방식은 그 스킬들의 비교 프로그램 기준이 우선이다.
+## Always-keep rules
 
-## 항상 지키는 규칙
+- Keep raw composite-key columns; build display keys separately; never fix component count or names. [datawindow](references/datawindow.md#datawindow-and-screen-mapping)
+- Trace input, query, edit protection, save and output in real source; compare source and target. [migration](references/migration.md#result-check)
+- A simple SELECT extraction needs no migration document or C# generation. [migration](references/migration.md#result-check)
+- Prefer the target project's user controls and their init defaults; add no PB properties or familiar DevExpress options without evidence.
 
-한 줄에 규칙 하나다. 전체 내용·예시·예외는 링크한 문서가 규칙의 자리다. 링크가 없는 줄은 이 목록이 자리다.
+## Work files and cleanup
 
-- 복합키는 원래 구성 열을 그대로 두고 표시용 키는 따로 만든다. 구성 열 개수나 이름을 고정하지 않는다. [datawindow.md](references/datawindow.md#datawindow-and-screen-mapping)
-- 입력·조회·편집 보호·저장·출력 흐름을 실제 소스로 따라가 원본과 대상에서 비교한다. [migration.md](references/migration.md#결과-검증)
-- 단순 SELECT 추출에는 이관 문서나 C# 생성을 요구하지 않는다. [migration.md](references/migration.md#결과-검증)
-- 대상 프로젝트에 맞는 사용자 컨트롤과 그 초기화 기본값을 우선 쓴다. PB 속성이나 익숙한 DevExpress 옵션을 근거 없이 덧붙이지 않는다.
+- Work files (drafts, copies, exports, tests, logs) go to a task folder in `%TEMP%`, never the source.
+- **`.sql` files never go inside the solution folder**: use `SQL\<YYYYMMDD>\` in the `.sln` folder's parent (`…\고객사\SQL\20261120\`). Never use an `SQL` folder inside it; propose moving it. No commit. Unsure: ask.
+- Write only the final deliverables to the source folder, and only to the path you were given.
+- Leave processes and services you did not start alone.
+- Temp files still needed for the next step may stay; give their paths in the answer.
+- Stop your processes; remove your temp files (`git status`); report unknown files.
 
-## 작업 파일과 정리
+## Self-check
 
-- **소스 프로젝트 폴더에 작업용 파일을 만들지 않는다.** 비교용 사본, 초안, 추출물, 테스트 스크립트, 실행 결과, 로그는 시스템 임시 폴더(`%TEMP%`) 아래 작업별 폴더에 둔다.
-- 소스 폴더에는 사용자가 요청한 최종 결과물만 쓴다. 파일 위치를 지정받으면 그 경로에만 쓴다.
-- **SP·쿼리 `.sql` 파일은 솔루션 폴더 안에 만들지 않는다.** `.sln`이 있는 폴더의 **상위 폴더**에 `SQL\<YYYYMMDD>\` 폴더를 두고 거기에 쓴다(예: 솔루션이 `…\고객사\C_KONE120\`이면 `…\고객사\SQL\20261120\sp_XX000100_SAVE.sql`). SP는 DB에 적용하고 이 파일은 날짜별 기록으로 남긴다. 솔루션 안에 `SQL` 폴더가 이미 있어도 거기에 쓰지 않고, 사용자에게 알리고 상위로 옮기자고 제안한다. 이 폴더는 형상관리 대상이 아니므로 `.sql` 파일의 커밋을 할 일로 적지 않는다.
-- 작업 중 띄운 빌드, 앱 실행, DB 연결, 백그라운드 터미널·프로세스는 끝나면 종료한다. 사용자가 띄운 것이나 다른 작업이 같이 쓰는 서비스는 건드리지 않는다.
-- 끝내기 전에 소스 폴더에 내가 만든 임시 파일이 남았는지 확인하고(git 저장소면 `git status`), 남았으면 지운다. 출처를 모르는 파일은 지우지 말고 보고한다.
-- 다음 작업에 계속 필요한 임시 파일은 남기되, 경로를 답변에 적는다.
+1. **Source↔result mapping**: where each event, DW, SQL and field went, with **source (PB export file:line) and result (file:line)**; missing ones `미확인`. Analysis only: link targets instead of results. Only items touching the change. [verify](references/verify.md)
+2. **Rules**: the rules above, lessons, and the self-checks of the csharp/sql skills used. New C#: the csharp contract table (incl. `ExecSPTrn` vs `ExecSP`).
+3. **Scenario table**:
 
-## 끝내기 전에 (자체 점검)
-
-별도 검토 에이전트 없이 직접 확인하고 답변에 넣는다.
-
-1. **원본↔결과 매핑**: 이벤트·DW·SQL·필드가 대상의 어디로 갔는지 목록으로 남긴다. 항목마다 **원본(PB 내보내기 파일:줄)과 결과(파일:줄)**를 근거로 적고, 빠진 것은 미확인으로 적는다. 분석만이면 결과 대신 연결 대상(DW·호출자 파일:줄)을 적는다. 바꾼 부분에 닿는 항목만 채운다. 형태와 범위는 [verify.md](references/verify.md).
-2. **규칙 대조**: 위 규칙, 교정 기록(플러그인·로컬), 그리고 함께 쓴 csharp·sql 스킬의 자체 점검을 수행한다. C#을 만들었으면 csharp 스킬의 계약 대조표(화면 ↔ SP, 저장 호출이 `ExecSPTrn`인지 `ExecSP`인지 포함)도 채운다.
-3. **시나리오 표**:
-
-| 구분 | 확인할 사례 | 근거 |
+| Kind | Cases | Evidence |
 | --- | --- | --- |
-| 정상 | PB에서 조회·저장되던 행과 상태가 C#/SP에서도 같은지 | 실행 / 정적 대조 / 미확인 |
-| 제외·경계 | PB에서 보호·제외되던 행, retrieve 인자 NULL, 빈 결과, 복합키 일부 불일치, 삭제 행 | 실행 / 정적 대조 / 미확인 |
+| Normal | Rows/states PB queried or saved behave the same in C#/SP | 실행 / 정적 대조 / 미확인 |
+| Exclusion/edge | Rows PB protected/excluded, NULL retrieve args, empty result, partial composite-key mismatch, deleted rows | same |
 
-정적으로 확인한 범위, 실행 결과, 확인하지 못한 화면·DB 동작을 구분해서 적는다.
+Separate statically checked scope, run results and unconfirmed screen/DB behavior.
 
-마지막으로 [작업 파일과 정리](#작업-파일과-정리)대로 내보내기 임시 폴더와 띄운 프로세스를 정리했는지 확인한다.
+4. Clean up (export temp folders included).
 
-## 교정을 받으면 (Compound)
+## Compound
 
-사용자가 결과를 교정했거나 대조·실행에서 나온 어긋남의 원인이 규칙에 없거나 틀렸으면, 고친 뒤 **묻지 않고** 로컬 기록 `~/.claude/ace/lessons/pb.md`에 적고 답변에 `교정 기록에 추가: <제목>` 한 줄로 알린다. 사용자가 이 대화에서 파일을 만들거나 고치지 말라고 했으면 쓰지 않고 답변에만 보인다. 언제 적는지, 항목 형식, 저장소로 옮기는 승격(사용자가 요청할 때만)은 [compound.md](references/compound.md)가 자리다.
+After a correction, fix it and, without asking, add it to `~/.claude/ace/lessons/pb.md` and write `교정 기록에 추가: <제목>`. [compound.md](references/compound.md)

@@ -1,119 +1,113 @@
-# SQL 교정 기록
+# SQL lessons
 
-사용자가 교정한 실수의 기록이다. 작업 전에 읽고, 해당하면 다른 규칙보다 우선한다. 로컬 기록과 함께 읽는 법, 항목 형식, 승격 절차는 [compound.md](compound.md)에 있다.
+Corrected mistakes; a matching entry overrides other rules. Format and promotion: [compound.md](compound.md). `Rule:` links to the rule's home. Titles are anchors.
 
-각 항목의 `규칙:`은 한 문장과 규칙의 자리로 가는 링크다. 전체 내용·예시·예외는 링크한 문서에 있다. 링크가 `../SKILL.md`면 SKILL.md의 목록이 자리다.
-
-옮길 때는 아래 주제 중 맞는 소제목 아래에 넣는다. 더 이상 맞지 않는 항목은 지운다. 항목 제목은 다른 문서가 앵커로 가리킬 수 있으므로 바꾸면 링크도 함께 고친다.
-
-| 주제 | 들어가는 것 |
-| --- | --- |
-| [서식](#서식) | 대소문자, 맞춤, 별칭, INSERT 격자, 주석 |
-| [조회](#조회) | SELECT의 JOIN·서브쿼리·이름 조회 |
-| [저장 구조](#저장-구조) | SAVE의 분기, 행 상태, 인자, 변수, 집합 처리, 검증 |
-| [트랜잭션·채번](#트랜잭션채번) | 트랜잭션 위치, 공통 채번 SP |
-| [작업 방식](#작업-방식) | 파일 위치, 동작 유지 요청의 처리 |
+Topics: [Layout](#layout), [SELECT](#select), [SAVE structure](#save-structure), [Transactions and numbering](#transactions-and-numbering), [Way of working](#way-of-working).
 
 ---
 
-## 서식
+## Layout
 
-### 별칭은 업무 역할로 (KH 3.6.2)
-- 실수: 별칭을 JOIN 순서나 테이블명 첫 글자로 정했다.
-- 규칙: 같은 업무의 테이블은 기준 글자에 번호를 붙이고, 새 업무만 다음 글자를 쓴다. [style.md](style.md#별칭-역할)
+### Aliases by business role (KH 3.6.2)
+- Mistake: chose aliases by JOIN order or the table name's first letter.
+- Rule: same-business tables take the base letter plus a number; only a new business takes the next letter. [style.md](style.md#alias-roles)
 
-### 식별자 전부 대문자 (KH 3.6.3)
-- 실수: 출력 열 이름(`AS` 뒤)이나 함수·프로시저 이름의 원래 대소문자를 남겼다.
-- 규칙: 리터럴·주석·`[...]` 안만 빼고 모두 대문자. [style.md](style.md#sql-layout)
+### All identifiers uppercase (KH 3.6.3)
+- Mistake: kept the original case of output column names (after `AS`) or function/procedure names.
+- Rule: everything uppercase except literals, comments and `[...]`. [style.md](style.md#sql-layout)
 
-### INSERT 긴 값은 줄 끝으로 (KH 3.6.8)
-- 실수: 30자 넘는 값이 줄 중간에 있어 다른 줄의 열을 수십 칸씩 띄웠다.
-- 규칙: 긴 값은 그 줄의 마지막 항목으로 두고 다음 열은 다음 줄에서 시작한다. [style.md](style.md#insert-열-대응)
+### Long INSERT values go at the line end (KH 3.6.8)
+- Mistake: a 30+ character value mid-line pushed other lines' columns dozens of spaces apart.
+- Rule: a long value is the last item on its line; the next column starts on the next line. [style-insert.md](style-insert.md#insert-column-grid)
 
-### 절은 왼쪽 맞춤 (2026-11-20)
-- 실수: FROM·WHERE·AND를 SELECT 끝 글자에 맞춰 오른쪽으로 들여 썼다(`  FROM`, ` WHERE`, `   AND`).
-- 규칙: FROM·WHERE·GROUP BY·ORDER BY는 SELECT와 같은 열에서 시작하고, 기존 SP의 오른쪽 맞춤을 따라 하지 않는다. [style.md](style.md#sql-layout)
+### Clauses are left-aligned (2026-11-20)
+- Mistake: right-aligned FROM/WHERE/AND to the end of SELECT (`  FROM`, ` WHERE`, `   AND`).
+- Rule: FROM/WHERE/GROUP BY/ORDER BY start in SELECT's column; do not copy right alignment from existing SPs. [style.md](style.md#sql-layout)
 
-### 핵심 조건에는 업무 뜻 주석을 단다 (2026-11-20)
-- 실수: 수량 비교나 제외 조건을 주석 없이 쓰거나, 컬럼 이름을 그대로 옮긴 주석을 달았다.
-- 규칙: 조건 바로 윗줄에 업무 용어와 비교 기호로 주석을 달고, 파생 테이블의 집계 열에 `OUTQTY`·`INQTY`처럼 이름을 준다. [style.md](style.md#조건-주석)
+### Key conditions get a business comment (2026-11-20)
+- Mistake: wrote quantity/exclusion conditions without a comment, or with a comment that just repeated column names.
+- Rule: comment directly above in business terms with the same operator, and name derived aggregates `OUTQTY`/`INQTY`. [style-insert.md](style-insert.md#condition-comments)
 
-### INSERT 열 격자를 한 칸짜리 줄로 끊지 않는다 (2026-11-20, C_KONE120 MA100500)
-- 실수: 순번 식(`ROW_NUMBER() OVER (ORDER BY 열 7개)`)이 길어서 120자를 넘자, 그 열만 한 줄에 따로 두고(`, SEQ2`, `, PURSEQ2`) 식을 두 줄로 쪼갰다. 열 목록과 값 목록의 격자가 깨져 들여쓰기가 안 맞아 보였다.
-- 규칙: 긴 값은 다른 항목과 같은 줄의 마지막에 두고, 그래도 120자를 넘으면 스테이징 `SEQ IDENTITY`로 식을 짧게 만든다. [style.md](style.md#insert-열-대응)
+### Do not break the INSERT grid into one-cell lines (2026-11-20, C_KONE120 MA100500)
+- Mistake: a long `ROW_NUMBER()` passed 120, so I put it alone on a line (`, SEQ2`) and split it, breaking the grid.
+- Rule: keep the long value at the end of a shared line; if still over 120, shorten it with a staging `SEQ IDENTITY`. [style-insert.md](style-insert.md#insert-column-grid)
 
-### 손대지 않은 원본 부분의 서식도 고친다 (2026-11-20, 모델 3종 비교 시험)
-- 실수: 같은 SP를 Opus·Sonnet·Haiku에 맡겼더니, 새로 쓴 부분은 규칙대로 썼지만 원본에 있던 한 줄짜리 `INSERT INTO @T (A, B, C…)`, 한 줄에 열 3개씩 둔 테이블 변수, `EXISTS` 안의 `WHERE @WORKTYPE IN (…)`, 120자 넘는 줄을 그대로 뒀다. 세 모델 모두 `SET XACT_ABORT ON`을 남겼다.
-- 규칙: 로직을 고치는 작업이면 SP 전체를 규칙 형태로 맞춘다. [style.md](style.md#손대지-않은-부분의-서식)
+### Also format the untouched original parts (2026-11-20, three-model test)
+- Mistake: all three models kept the original's one-line `INSERT INTO @T (…)`, multi-column table variable lines, 120+ lines and `SET XACT_ABORT ON`.
+- Rule: when the task changes logic, bring the whole SP to the rules. [style.md](style.md#formatting-untouched-parts)
 
-## 조회
+## SELECT
 
-### EXISTS/IN 서브쿼리 → JOIN (KH 3.6.4)
-- 실수: WHERE의 EXISTS·IN 서브쿼리를 그대로 두었다.
-- 규칙: 연결 키로 GROUP BY한 파생 테이블을 JOIN한다. [select.md](select.md#exists--join)
+### No CTE, no #temp tables (2026-11-20, C_KONE120 QC500100)
+- Mistake: Codex used a CTE in `SP_QC500100_SELECT` since the rule allowed one "when hard without"; user: "CTE랑 #임시테이블 내가 존나 싫어하는것들인데".
+- Rule: never use CTE or `#temp` tables; derived JOINs, table variables only for staging. [style.md](style.md#sql-layout)
 
-### 공통코드 이름은 JOIN, 사용자 이름은 함수 (2026-11-20)
-- 실수: 공통코드 이름까지 `F_BA011T_FIND_SUBNM` 함수로 가져오게 했다.
-- 규칙: 공통코드 이름은 `BA011T` JOIN, 사용자 이름은 가장 바깥 SELECT에서만 `F_FIND_USERNM` 함수를 쓰고 대량 조회에서는 JOIN한다. [kone.md](kone.md#이름-조회-사용자-이름은-함수-공통코드-이름은-join)
+### EXISTS/IN subquery → JOIN (KH 3.6.4)
+- Mistake: left EXISTS/IN subqueries in WHERE.
+- Rule: JOIN a derived table grouped by the link key. [select.md](select.md#exists--join)
 
-## 저장 구조
+### Common-code names by JOIN, user names by function (2026-11-20)
+- Mistake: fetched common-code names with the `F_BA011T_FIND_SUBNM` function too.
+- Rule: common-code names JOIN `BA011T`; user names use `F_FIND_USERNM` only in the outermost SELECT, JOIN in bulk queries. [kone.md](kone.md#name-lookup)
 
-### 잠금 힌트 금지 (2026-11-20 이전부터 반복)
-- 실수: SAVE에 `WITH (UPDLOCK, HOLDLOCK)`을 넣거나, 원본에 있던 것을 그대로 두었다.
-- 규칙: 잠금 힌트는 쓰지 않고 원본·참고 SP에 있어도 지운다. [save.md](save.md#잠금-힌트)
+## SAVE structure
 
-### SAVE 고정 규칙은 원본에 있어도 고친다 (KH 3.6.5)
-- 실수: 원본에 건수 변수·여러 COMMIT·조기 RETURN이 있다는 이유로 유지했다.
-- 규칙: SAVE 로직을 고칠 때는 고정 규칙대로 바꾸고, 서식 정리만 맡았으면 위치만 보고한다. [save.md](save.md#save-고정-규칙)
+### No lock hints (repeated since before 2026-11-20)
+- Mistake: added `WITH (UPDLOCK, HOLDLOCK)` to a SAVE or kept one from the original.
+- Rule: never use lock hints; remove them even from the original or reference SP. [save.md](save.md#lock-hints)
 
-### @변수 최소화 (KH 3.6.6)
-- 실수: 한 번 대입하고 한 번 읽는 변수, 헤더 값을 복사한 변수를 만들었다.
-- 규칙: 그 자리에서 식을 쓰거나 테이블 변수·대상 행을 JOIN해 읽는다. [save.md](save.md#save-고정-규칙)
+### Fix SAVE fixed-rule violations even in the original (KH 3.6.5)
+- Mistake: kept count variables, several COMMITs and early RETURNs because the original had them.
+- Rule: when changing SAVE logic apply the fixed rules; in format-only work just report locations. [save.md](save.md#save-fixed-rules)
 
-### 집합 기반 배분 (KH 3.6.7)
-- 실수: WHILE·커서·`SELECT TOP 1 @변수`로 한 행씩 배분하고, NEW/EDIT 분기에 같은 코드를 복사했다.
-- 규칙: 누적 구간 JOIN으로 INSERT 한 문장에 쓰고, 공통 처리는 한 번만 둔다. [save.md](save.md#배분-insert)
+### Minimize @variables (KH 3.6.6)
+- Mistake: created assign-once-read-once variables and variables copying header values.
+- Rule: write the expression in place or JOIN the table variable / target rows. [save.md](save.md#save-fixed-rules)
 
-### 조회와 저장의 행 단위를 맞춘다 (2026-11-20, C_KONE120 MA100500)
-- 실수: 저장은 여러 행을 `GROUP BY`로 합쳐 상세 1행으로 넣고, 상세 조회는 하위 테이블 행마다 1행씩 돌려주면서 합쳐진 금액을 그대로 붙였다. 다시 열어 수정 저장하면 금액이 행 수만큼 불어난다.
-- 규칙: 저장이 쓰는 상세 한 행과 DETAIL 조회의 한 행이 같은 단위인지 대조한다. [save.md](save.md#조회와-저장의-행-단위)
+### Set-based allocation (KH 3.6.7)
+- Mistake: allocated row by row with WHILE/cursor/`SELECT TOP 1 @var` and copied the code into NEW and EDIT.
+- Rule: one INSERT with a running-range JOIN; shared processing once. [save-stock.md](save-stock.md#allocation-insert)
 
-### 수정 저장은 행 상태로 나눠 처리한다 (2026-11-20, C_KONE120 MA100500)
-- 실수: EDIT에서 상세를 전부 지우고 다시 넣어 등록자·등록일이 수정한 사람으로 바뀌고, 수정할 때마다 채번을 새로 했다.
-- 규칙: 상세는 `GBN`으로 나눠 DEL은 삭제, MOD만 UPDATE, NEW만 INSERT하고 채번은 NEW 행이 있을 때만 한다. [save.md](save.md#수정-저장의-행-상태)
+### Same row unit for SELECT and SAVE (2026-11-20, C_KONE120 MA100500)
+- Mistake: the save merged rows with `GROUP BY` but DETAIL returned child rows with the merged amount; re-saves multiplied it.
+- Rule: check that one saved detail row and one DETAIL row are the same unit. [save-edit.md](save-edit.md#same-row-unit-for-select-and-save)
 
-### MOD 행은 짝 테이블도 UPDATE한다 (2026-11-20, 모델 3종 비교 시험)
-- 실수: 발주 상세의 `MOD` 행은 UPDATE하면서, 짝이 되는 불출 행은 지웠다가 다시 넣고 그 때문에 `MOD` 행에도 채번을 했다. 불출의 번호와 등록자·등록일이 바뀐다.
-- 규칙: `MOD` 행은 모든 대상 테이블에서 UPDATE한다. [save.md](save.md#수정-저장의-행-상태)
+### EDIT works by row state (2026-11-20, C_KONE120 MA100500)
+- Mistake: EDIT deleted and re-inserted all details, overwriting registrant/date and renumbering.
+- Rule: split by `GBN`: DEL deletes, only MOD updates, only NEW inserts, number only when NEW rows exist. [save-edit.md](save-edit.md#row-states-in-edit)
 
-### 요청에 없는 검증을 넣지 않는다 (2026-11-20, 모델 3종 비교 시험)
-- 실수: 순번 짝을 맞추거나 JOIN 누락을 막으려고 "중복 선택", "미등록 품목" 같은 검증을 새로 넣었다.
-- 규칙: 검증을 추가하지 않고도 맞게 동작하도록 짜고, 필요해 보이는 검증은 답변에서 제안한다. [save.md](save.md#요청에-없는-검증)
+### MOD rows also UPDATE the paired table (2026-11-20, three-model test)
+- Mistake: updated `MOD` details but deleted/re-inserted their paired issue rows, renumbering them.
+- Rule: `MOD` rows are UPDATEd in every target table. [save-edit.md](save-edit.md#row-states-in-edit)
 
-### 화면이 null로 넘기는 XML 인자에는 기본값을 둔다 (2026-11-20, C_KONE120 MA100500)
-- 실수: `sp_MA100500_SAVE`에 `@XML_MA110T VARCHAR(MAX)`를 기본값 없이 선언했다. 화면은 삭제 때 상세 XML을 `null`로 둔다(`MA100500.cs:253`). ADO.NET은 값이 `null`인 인자를 보내지 않아 삭제가 "expects parameter '@XML_MA110T', which was not supplied"로 실패했다. 롤백 테스트는 인자를 항상 넘겨서 통과했다.
-- 규칙: 화면이 `null`로 넘길 수 있는 인자는 `= NULL`을 두고, 롤백 테스트는 화면처럼 그 인자를 빼고 부른다. [save.md](save.md#화면이-null로-넘길-수-있는-인자), [verify.md](verify.md#반드시-지킬-것)
+### No unrequested validation (2026-11-20, three-model test)
+- Mistake: added "duplicate selection" / "unregistered item" checks to keep sequence pairs or JOINs safe.
+- Rule: make it work without new checks; propose needed ones in the answer. [save.md](save.md#unrequested-validation)
 
-## 트랜잭션·채번
+### XML arguments the screen passes as null get a default (2026-11-20, C_KONE120 MA100500)
+- Mistake: `@XML_MA110T` had no default; the screen sends `null` on delete (`MA100500.cs:253`), so delete failed "not supplied"; the test always passed it.
+- Rule: give `= NULL` and omit the argument in the rollback test like the screen. [save-tran.md](save-tran.md#arguments-the-screen-may-pass-as-null), [verify-save.md](verify-save.md#must-keep)
 
-### SAVE SP에 트랜잭션 코드 금지 (2026-11-20)
-- 실수: SAVE SP 안에 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`TRY/CATCH`나 `@STARTTRANCOUNT`를 넣었다.
-- 규칙: 호출부가 `ExecSPTrn`이면 SP에 트랜잭션 코드를 쓰지 않는다. 아래 "ExecSP로 부르는 저장" 항목을 먼저 확인한다. [save.md](save.md#트랜잭션)
+## Transactions and numbering
 
-### ExecSP로 부르는 저장은 SP의 트랜잭션을 빼지 않는다 (2026-11-20, C_KONE120 SA200100)
-- 실수: "SAVE에 트랜잭션 코드 금지" 규칙만 보고 `sp_SA200100_SAVE`의 `BEGIN TRY / BEGIN TRANSACTION / ROLLBACK`을 뺐다. 그런데 이 화면은 `ExecSPTrn`이 아니라 `ExecSP`로 저장해서, SP의 트랜잭션이 유일한 보호였다. 빼면 쓰는 도중 오류가 났을 때 일부만 저장된다.
-- 규칙: 트랜잭션을 빼기 전에 호출 줄을 찾아 `ExecSPTrn`인지 확인하고, `ExecSP`이거나 물어볼 수 없으면 빼지 않는다. [save.md](save.md#트랜잭션)
+### No transaction code in SAVE SPs (2026-11-20)
+- Mistake: put `BEGIN TRANSACTION`/`COMMIT`/`ROLLBACK`/`TRY/CATCH` or `@STARTTRANCOUNT` in a SAVE SP.
+- Rule: with an `ExecSPTrn` caller write no transaction code; check the next entry first. [save-tran.md](save-tran.md#transactions)
 
-### 루프를 없애려고 공통 채번 SP를 우회하지 않는다 (2026-11-20, C_KONE120 PR000100)
-- 실수: 행마다 채번 SP를 부르던 커서를 없애려고, 채번 테이블 `BA100T`를 SP에서 직접 UPDATE·INSERT하고 `ROW_NUMBER()`로 번호를 계산했다. "루프 금지"는 지켰지만 "공통 채번 SP를 쓴다"를 깼고, 다른 SP는 아무도 `BA100T`를 직접 쓰지 않는다.
-- 규칙: 채번은 공통 SP로만 하고, 번호가 여러 개 필요하면 채번 호출만 도는 작은 루프를 남긴다. [kone.md](kone.md#sp_system_ba100t_keycode), 규칙끼리 부딪힐 때는 [SKILL.md](../SKILL.md#항상-지키는-규칙)
+### Keep the SP transaction for ExecSP saves (2026-11-20, C_KONE120 SA200100)
+- Mistake: removed the transaction from `sp_SA200100_SAVE`, whose screen uses `ExecSP`; it was the only protection.
+- Rule: find the call line before removing; with `ExecSP` or when you cannot ask, keep it. [save-tran.md](save-tran.md#transactions)
 
-## 작업 방식
+### Do not bypass the common numbering SP to remove a loop (2026-11-20, C_KONE120 PR000100)
+- Mistake: to drop a numbering cursor, wrote `BA100T` directly with `ROW_NUMBER()`; no other SP does.
+- Rule: number only through the common SP; keep a small loop around just the numbering call. [kone.md](kone.md#sp_system_ba100t_keycode), conflicts: [SKILL.md](../SKILL.md#always-keep-rules)
 
-### SQL 파일은 솔루션의 상위 폴더에 둔다 (2026-11-20, C_KONE120 MA100500)
-- 실수: 다시 쓴 SP를 솔루션 폴더 안의 `SQL\날짜\` 아래에 저장했다. 예전 작업이 남긴 폴더를 관례로 착각했다. 지적받은 뒤에도 임시 폴더, 다른 작업 폴더로 두 번 잘못 옮겼다.
-- 규칙: `.sql` 파일은 `.sln`이 있는 폴더의 상위 폴더 아래 `SQL\<YYYYMMDD>\`에 쓰고, 헷갈리면 사용자에게 묻는다. [SKILL.md](../SKILL.md#작업-파일과-정리)
+## Way of working
 
-### "동작은 그대로"일 때 달라지는 경우를 숨기지 않는다 (2026-11-20, 복잡한 SP 3건 시험)
-- 실수: 커서를 집합 처리로 바꾸면서 "삭제 후 같은 품목을 다시 추가"나 "XML에 같은 키가 두 번" 같은 경우에 결과가 원본과 달라졌다. 보고서 아래쪽에 적긴 했지만 변경은 그대로 했다.
-- 규칙: 결과가 달라질 수 있는 경우를 찾으면 그 변경을 하지 않고, 꼭 해야 하면 답변 맨 위에 적는다. [SKILL.md](../SKILL.md#항상-지키는-규칙)
+### SQL files go in the solution's parent folder (2026-11-20, C_KONE120 MA100500)
+- Mistake: saved the SP under `SQL\date\` inside the solution, then moved it wrongly twice more.
+- Rule: write `.sql` files to `SQL\<YYYYMMDD>\` under the parent of the `.sln` folder; ask when unsure. [SKILL.md](../SKILL.md#work-files-and-cleanup)
+
+### Do not hide cases that change behavior (2026-11-20, three complex-SP test)
+- Mistake: a set-based rewrite changed results for "delete then re-add" and "same key twice"; noted low in the report, change made anyway.
+- Rule: if results can differ, do not make the change; if it must be made, say so at the top of the answer. [SKILL.md](../SKILL.md#always-keep-rules)

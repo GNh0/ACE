@@ -232,9 +232,39 @@ def run_checks(raw, caller='unknown', original=None):
                 twice.append(i + 1)
                 break
     item('한 비교식에 QTY 두 번 없음', twice)
-    ctes = find_lines(r'(^|;)\s*WITH\s+\w+\s*(\([^)]*\))?\s*AS\s*\(', up, re.M)
-    if ctes:
-        r.append((CHECK, 'CTE 사용', ctes, '꼭 필요한 경우인지 확인'))
+    # 사용자는 CTE와 #임시 테이블을 쓰지 않는다. 파생 테이블 JOIN이나 테이블 변수로 쓴다.
+    item('CTE(WITH … AS) 없음', find_lines(r'(^|;)\s*WITH\s+\w+\s*(\([^)]*\))?\s*AS\s*\(', up, re.M))
+    item('#임시 테이블 없음', find_lines(r'\bCREATE\s+TABLE\s+#|\bINTO\s+#\w+', up))
+    # JOIN 줄에 ON을 붙이지 않는다(ON은 다음 줄, JOIN의 I 아래). 한 줄짜리 IF EXISTS 검증은 제외
+    item('ON은 JOIN 다음 줄', [i + 1 for i, l in enumerate(lines)
+                               if re.search(r'\bJOIN\b.*\bON\b', l)
+                               and not re.match(r'\s*IF\s+(NOT\s+)?EXISTS\b', l)
+                               and not re.search(r'\bON\s*\(?\s*1\s*=\s*1\b', l)])
+    # OPENXML 파싱과 테이블 함수 결과를 받는 SELECT *는 사용자 방식이다
+    star = []
+    for ln in find_lines(r'\bSELECT\s+(DISTINCT\s+)?(TOP\s*\(?\d+\)?\s+)?(\w+\.)?\*', up):
+        near = ' '.join(lines[ln - 1:ln + 2])
+        prev = ' '.join(lines[max(0, ln - 2):ln])
+        if not re.search(r'\bOPENXML\b|\bFROM\s+(DBO\.)?\w+\s*\(', near) and not re.search(r'\bEXISTS\s*\(\s*(SELECT\b|$)', prev):
+            star.append(ln)
+    item('SELECT * 없음(OPENXML·테이블 함수 제외)', star)
+    if not save:
+        many = []
+        for i, l in enumerate(lines):
+            m = re.match(r'\s*(SELECT\s+(DISTINCT\s+)?|,\s*)(.*)$', l)
+            if not m or re.match(r'\s*SELECT\s+1\b', l):
+                continue
+            body, depth, cut = m.group(3), 0, False
+            for ch in body:
+                depth += ch == '('
+                depth -= ch == ')'
+                if ch == ',' and depth == 0:
+                    cut = True
+                    break
+            if cut:
+                many.append(i + 1)
+        if many:
+            r.append((CHECK, 'SELECT 열은 한 줄에 하나(선행 쉼표)', many, '원본에 없던 한 줄 나열이면 나눈다'))
     if original is not None:
         old = raiserror_msgs(original, mask(original))
         for msg, ln in raiserror_msgs(raw, code).items():
