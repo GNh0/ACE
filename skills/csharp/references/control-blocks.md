@@ -8,6 +8,43 @@
 - Designer에 이벤트 구독을 새로 쓰지 않는다. 기존 화면의 Designer에 이미 있는 구독은 요청 없이 옮기지 않는다.
 - 글꼴·스킨·높이 값은 **같은 화면의 같은 종류 컨트롤**에서 가져온다. 아래 값은 C_KONE110_1 기준이며 다른 프로젝트는 다를 수 있다.
 
+## 컨트롤 선택
+
+**프로젝트에 UserControl(`u_…`)이 있으면 그것을 쓰고, 없을 때만 DevExpress가 지원하는 표준 컨트롤을 쓴다.** `System.Windows.Forms`의 기본 컨트롤(`TextBox`, `Label`, `Button`, `DataGridView`)은 쓰지 않는다.
+
+| 용도 | 쓰는 컨트롤 | 기반 DevExpress 컨트롤 | 100개 화면의 개수 |
+| --- | --- | --- | --- |
+| 라벨 | `u_Label` | `LabelControl` | 1,020 |
+| 한 줄 입력 | `u_TextEdit` | `TextEdit` | 471 (표준 `TextEdit` 3) |
+| 코드 선택 콤보 | `u_LookUpEdit` | `LookUpEdit` | 347 |
+| 날짜 | `u_DateEdit` | `DateEdit` | 241 |
+| 숫자 | `u_SpinEdit` | `SpinEdit` | 199 |
+| 찾기 버튼이 달린 입력 | `u_ButtonEdit` | `ButtonEdit` | 59 |
+| 버튼 | `u_ButtonControl` | `SimpleButton` | 138 (표준 `SimpleButton` 8) |
+| 체크 | `u_CheckEdit` | `CheckEdit` | 85 |
+| 라디오 묶음 | `u_RadioButton` | `RadioGroup` | 77 |
+| 여러 줄 입력 | `u_MemoEdit` | `MemoEdit` | 50 |
+| 제목 있는 묶음 | `u_GroupControl` | `GroupControl` | 333 (표준 `GroupControl` 14) |
+| 패널 | `u_Panel`, 스크롤이 필요하면 `u_ScrollPanel` | `PanelControl`, `XtraScrollableControl` | 285, 9 |
+| 그리드 | `u_GridControl` + `u_GridView` | `GridControl`, `GridView` | 262, 273 (표준 `GridView` 25) |
+| 탭 | `u_TabControl` + `XtraTabPage` | `XtraTabControl` | 52 |
+| 그림 | `u_PictureEdit` | `PictureEdit` | |
+| 그리드 안 콤보 | `u_GridLookUpEdit` | `GridLookUpEdit` | |
+
+UserControl이 없어서 표준 DevExpress 컨트롤을 그대로 쓰는 것:
+
+| 용도 | 쓰는 컨트롤 |
+| --- | --- |
+| 그리드 열 | `GridColumn`, 밴드형은 `BandedGridColumn` + `GridBand` |
+| 그리드 셀 편집기 | `RepositoryItemLookUpEdit`(693), `RepositoryItemSpinEdit`(227), `RepositoryItemButtonEdit`(102), `RepositoryItemCheckEdit`(74), `RepositoryItemDateEdit`(25), `RepositoryItemMemoEdit`(10) |
+| 영역 크기 조절 | `SplitterControl`(118), `SplitContainerControl`(6) |
+| 트리 | `TreeList` + `TreeListColumn` |
+| 차트 | `ChartControl` |
+
+- 그리드 셀의 콤보는 `u_rpsLookUpEdit`(44)보다 표준 `RepositoryItemLookUpEdit`(693)를 훨씬 많이 쓴다. 같은 화면의 기존 Repository와 같은 종류를 쓴다.
+- UserControl은 생성자와 초기화에서 기본값(높이, 글꼴, 정렬, Enter 이동 등)을 이미 잡고 있다. 아래 속성 블록은 Designer가 그 기본값을 직렬화한 결과다. 기본값을 덮어쓰는 속성을 더하지 않는다.
+- 다른 프로젝트에서는 그 프로젝트에 어떤 `u_…` 컨트롤이 있는지 먼저 확인한다. 없는 컨트롤은 표준 DevExpress 컨트롤로 대신하고, 그 사실을 답변에 적는다.
+
 ## 이름 접두어
 
 | 컨트롤 | 접두어 | 예 |

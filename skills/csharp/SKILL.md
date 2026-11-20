@@ -34,6 +34,7 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 - 요청한 멤버만 바꾼다. 기존 속성·이벤트·사용자 편집(폭, 순서, Font, Visible)은 보존한다.
 - 라벨·한 줄 입력 높이는 같은 화면의 같은 역할 컨트롤과 맞춘다. 폰트·정렬·버튼은 실제 초기화 값을 유지한다.
 - 그리드 새로 만들 때는 [grid.md](references/grid.md) 기본값만 쓴다. 셀 TextOptions, DisplayFormat, EditMask, 뷰 전체 Editable/ReadOnly를 임의로 추가하지 않는다.
+- **프로젝트에 UserControl(`u_…`)이 있으면 그것을 쓰고, 없을 때만 DevExpress 표준 컨트롤을 쓴다.** WinForms 기본 컨트롤(`TextBox`, `Label`, `Button`, `DataGridView`)은 쓰지 않는다. 용도별 컨트롤은 [control-blocks.md](references/control-blocks.md#컨트롤-선택)에 있다.
 - 사용자 컨트롤의 기본값을 덮어쓰지 않는다. 필요한 속성만 바꾼다.
 - if·else·반복문은 한 줄이어도 **항상 중괄호**를 쓴다. 기존 화면에 중괄호 없는 한 줄 if가 있어도 새로 쓰는 코드는 중괄호를 쓴다.
 - 저장은 `dbClient.ExecSPTrn`으로 부른다. 트랜잭션은 이 메서드가 맡으므로 화면이나 SP에 따로 만들지 않는다.
