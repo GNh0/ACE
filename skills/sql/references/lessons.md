@@ -48,7 +48,7 @@
 
 ## SAVE SP에 트랜잭션 코드 금지 (2026-11-20)
 - 실수: SAVE SP 안에 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`TRY/CATCH`나 `@STARTTRANCOUNT`를 넣었다.
-- 규칙: C#의 `ExecSPTrn`이 시작·커밋·롤백을 맡으므로 SP에는 쓰지 않는다. 검증 실패는 `RAISERROR … RETURN`만 한다. [save.md](save.md#트랜잭션)
+- 규칙: 호출부가 `ExecSPTrn`이면 C#이 시작·커밋·롤백을 맡으므로 SP에는 쓰지 않는다. 검증 실패는 `RAISERROR … RETURN`만 한다. 단, 아래 "ExecSP로 부르는 저장" 항목을 먼저 확인한다. [save.md](save.md#트랜잭션)
 
 ## 절은 왼쪽 맞춤 (2026-11-20)
 - 실수: FROM·WHERE·AND를 SELECT 끝 글자에 맞춰 오른쪽으로 들여 썼다(`  FROM`, ` WHERE`, `   AND`).
@@ -89,3 +89,7 @@
 ## 요청에 없는 검증을 넣지 않는다 (2026-11-20, 모델 3종 비교 시험)
 - 실수: 순번 짝을 맞추거나 JOIN 누락을 막으려고 "중복 선택", "미등록 품목" 같은 검증을 새로 넣었다.
 - 규칙: 검증을 추가하지 않고도 맞게 동작하도록 짠다(예: 스테이징 `SEQ`로 순번 매기기). 그래도 필요해 보이는 검증은 넣지 말고 답변에서 이유와 함께 제안한다.
+
+## ExecSP로 부르는 저장은 SP의 트랜잭션을 빼지 않는다 (2026-11-20, C_KONE120 SA200100)
+- 실수: "SAVE에 트랜잭션 코드 금지" 규칙만 보고 `sp_SA200100_SAVE`의 `BEGIN TRY / BEGIN TRANSACTION / ROLLBACK`을 뺐다. 그런데 이 화면은 `ExecSPTrn`이 아니라 `ExecSP`로 저장해서, SP의 트랜잭션이 유일한 보호였다. 빼면 쓰는 도중 오류가 났을 때 일부만 저장된다.
+- 규칙: 트랜잭션을 빼기 전에 화면 코드에서 호출 줄을 찾아 `ExecSPTrn`인지 확인한다. `ExecSP`이면 원본의 트랜잭션을 그대로 두고, 호출부를 `ExecSPTrn`으로 바꾸자고 제안한다. 물어볼 수 없는 상황이면 **빼지 않는 쪽**이 기본이다.

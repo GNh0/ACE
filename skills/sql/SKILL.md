@@ -33,7 +33,7 @@ description: SQL Server 쿼리·프로시저(SP)를 사용자 방식으로 작�
 - SAVE에서는 건수 변수, MAX 순번 변수, 중간 결과 테이블 변수, WHILE·커서 행 단위 처리, NEW/EDIT 분기 복사를 쓰지 않는다. 자세한 형태는 [save.md](references/save.md).
 - `@변수`는 문법상 꼭 필요한 것만 둔다.
 - 수량·상태 비교, 검증 판정, 대상 선별 같은 핵심 조건에는 바로 윗줄에 업무 뜻을 적은 한 줄 주석을 단다(`-- 이전공정 입고수량 > 누적불출수량`). 식의 각 항이 어떤 수량인지 보이도록 파생 테이블의 집계 열은 `QTY`가 아니라 `OUTQTY`·`INQTY`처럼 이름을 준다. 형태는 [style.md](references/style.md#조건-주석).
-- **SAVE SP 안에 트랜잭션 코드(BEGIN TRANSACTION, COMMIT, ROLLBACK, TRY/CATCH, THROW, SET XACT_ABORT ON)를 쓰지 않는다.** C#의 `ExecSPTrn`이 맡는다. 검증 실패는 `RAISERROR … RETURN`만 한다.
+- **SAVE SP의 트랜잭션은 호출부를 먼저 확인하고 정한다.** 화면이 `dbClient.ExecSPTrn(…)`으로 부르면 C#이 트랜잭션을 맡으므로 SP 안의 트랜잭션 코드(BEGIN TRANSACTION, COMMIT, ROLLBACK, TRY/CATCH, THROW, SET XACT_ABORT ON)를 쓰지 않고 원본에 있으면 뺀다. **`ExecSP(…)`처럼 트랜잭션 없이 부르면 SP의 트랜잭션이 유일한 보호이므로 빼지 않는다.** 원본의 트랜잭션을 그대로 두고, 호출부를 `ExecSPTrn`으로 바꾸자고 사용자에게 제안한다. 호출부를 찾지 못했으면 빼지 말고 묻는다. 검증 실패는 어느 경우든 `RAISERROR … RETURN`이다.
 - FROM·WHERE·ORDER BY는 SELECT와 같은 열에서 시작한다(왼쪽 맞춤). LEFT/RIGHT JOIN에는 `OUTER`를 쓴다. CTE는 꼭 필요할 때만 쓴다.
 - **SP의 로직을 고칠 때는 손대지 않은 부분의 서식도 이 규칙대로 고친다.** 내가 새로 쓴 문장만 맞추고 원본의 한 줄짜리 INSERT 목록, 한 줄에 여러 열을 둔 테이블 변수, 120자 넘는 줄을 그대로 두지 않는다. (정렬·정리만 요청받았을 때 로직을 안 바꾸는 것과는 다른 얘기다.)
 - 요청에 없는 검증(`IF EXISTS … RAISERROR`)을 새로 넣지 않는다. 필요해 보이면 넣지 말고 답변에서 제안한다.
@@ -68,7 +68,8 @@ description: SQL Server 쿼리·프로시저(SP)를 사용자 방식으로 작�
 
 | 점검 | 예/아니오 |
 | --- | --- |
-| `BEGIN TRAN`, `COMMIT`, `ROLLBACK`, `TRY`, `CATCH`, `THROW`, `XACT_ABORT`, `TRANCOUNT`라는 글자가 SP 어디에도 없다 | |
+| 호출부가 `ExecSPTrn`인지 `ExecSP`인지 실제 화면 코드에서 확인했다(파일과 줄 번호를 적는다) | |
+| `ExecSPTrn`이면: `BEGIN TRAN`, `COMMIT`, `ROLLBACK`, `TRY`, `CATCH`, `THROW`, `XACT_ABORT`, `TRANCOUNT`라는 글자가 SP 어디에도 없다. `ExecSP`이면: 원본의 트랜잭션을 그대로 뒀다 | |
 | `UPDLOCK`, `HOLDLOCK`이 없다 | |
 | 120자를 넘는 줄이 없다 | |
 | 테이블 변수와 `OPENXML … WITH`의 열이 한 줄에 하나씩이다 | |

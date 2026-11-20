@@ -10,7 +10,7 @@
 | --- | --- |
 | `WITH (UPDLOCK, HOLDLOCK)` 등 잠금 힌트(원본·참고 SP에 있던 것 포함) | 힌트 없이 조회한다. 사용자가 이번 작업에서 명시 요청한 힌트만 남긴다. |
 | `IF @WORKTYPE = 'DELETE' BEGIN … RETURN END` 뒤에 나머지 모드를 조건 없이 이어 쓰기 | 아래 골격의 IF/ELSE IF 분기 |
-| SP 안의 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`BEGIN TRY/CATCH`·`THROW`, `SET XACT_ABORT ON`, `@STARTTRANCOUNT`(원본에 있던 것 포함) | 쓰지 않는다. C#의 `ExecSPTrn`이 트랜잭션 시작·커밋·롤백을 맡는다. [트랜잭션](#트랜잭션) |
+| SP 안의 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`BEGIN TRY/CATCH`·`THROW`, `SET XACT_ABORT ON`, `@STARTTRANCOUNT`(원본에 있던 것 포함) | 호출부가 `ExecSPTrn`이면 쓰지 않는다. `ExecSP`이면 원본의 트랜잭션을 그대로 둔다. 먼저 호출부를 확인한다. [트랜잭션](#트랜잭션) |
 | `@NEWCOUNT`·`@MODCOUNT`·`@DELCOUNT` 같은 건수 변수, `IF @@ROWCOUNT <> @변수`, `IF @CNT > 0` | 쓰기 전 `IF EXISTS` / `IF NOT EXISTS` 검증(전체 키, LEFT OUTER JOIN … IS NULL, 중복 키 GROUP BY HAVING) |
 | `SELECT @LASTSEQ = ISNULL(MAX(…), 0)` 뒤 `@LASTSEQ + RN`, 스테이징에 순번을 먼저 `UPDATE` | INSERT 안에서 `ISNULL(C.SEQ, 0) + ROW_NUMBER() OVER (ORDER BY …)`와 파생 MAX JOIN. 뒤 단계는 쓴 대상 행을 업무 키로 JOIN한다. |
 | 쓰기 문장을 감싼 WHILE·커서 루프에서 중첩 루프·`SELECT TOP 1 @변수`·루프 변수 여러 개로 한 행씩 처리 | [배분 INSERT](#배분-insert)처럼 한 문장 안의 JOIN·파생(누적 비교)으로 쓴다. 루프는 집합으로 풀 수 없을 때만 쓰고 이유를 밝힌다. |
@@ -121,12 +121,18 @@ END
 
 ## 트랜잭션
 
-SAVE SP 안에는 트랜잭션 코드를 쓰지 않는다.
+트랜잭션을 어디서 잡는지는 **호출부가 정한다.** SP를 고치기 전에 화면 코드에서 이 SP를 부르는 줄을 찾아 확인한다.
 
-- 화면은 `dbClient.ExecSPTrn(...)`으로 SAVE를 부른다. 이 메서드가 호출 전에 트랜잭션을 시작하고, 성공하면 커밋하고, 예외가 나면 롤백한다.
-- SP는 검증 실패 시 `RAISERROR('메시지', 16, 1); RETURN;`만 한다. 심각도 16 오류는 C#에 예외로 올라가서 그때까지의 쓰기가 전부 롤백된다.
-- SP 안에서 따로 `ROLLBACK`하면 바깥 트랜잭션까지 끝나서 266 오류(트랜잭션 수 불일치)가 난다.
-- 예외: 호출부가 `ExecSPTrn`이 아닌 SP(트랜잭션 없이 부르는 `ExecSP`, 다른 SP나 외부 시스템이 부르는 SP)는 호출부를 확인하고 사용자에게 트랜잭션을 어디서 잡을지 묻는다.
+| 호출부 | SP 안의 트랜잭션 |
+| --- | --- |
+| `dbClient.ExecSPTrn("sp_…_SAVE", …)` | 쓰지 않는다. 원본에 있으면 뺀다. |
+| `dbClient.ExecSP("sp_…_SAVE", …)` | **빼지 않는다.** 원본의 `BEGIN TRY / BEGIN TRANSACTION / COMMIT / CATCH ROLLBACK`을 그대로 둔다. |
+| 다른 SP·외부 시스템이 부르거나, 호출부를 찾지 못함 | 빼지 않고 사용자에게 묻는다. |
+
+- `ExecSPTrn`은 호출 전에 트랜잭션을 시작하고, 성공하면 커밋하고, 예외가 나면 롤백한다. SP는 검증 실패 시 `RAISERROR('메시지', 16, 1); RETURN;`만 하면 그때까지의 쓰기가 전부 롤백된다. 이 경우 SP 안에서 따로 `ROLLBACK`하면 바깥 트랜잭션까지 끝나서 266 오류(트랜잭션 수 불일치)가 난다.
+- `ExecSP`는 트랜잭션을 걸지 않는다. 이때 SP의 트랜잭션을 빼면, 쓰는 도중 오류(문자열 잘림, NOT NULL 위반, 교착 등)가 났을 때 앞에서 쓴 행이 남는다. 검증을 쓰기 앞으로 옮겨도 이 위험은 없어지지 않는다.
+- `ExecSP`로 부르는 저장을 발견하면 답변에 호출부 위치(파일, 줄)를 적고, 호출을 `ExecSPTrn`으로 바꾼 뒤 SP의 트랜잭션을 빼는 방법을 제안한다. 사용자가 동의하기 전에는 화면도 SP의 트랜잭션도 바꾸지 않는다.
+- 같은 프로젝트 안에도 두 방식이 섞여 있다(C_KONE120은 저장 호출 141곳 중 17곳이 `ExecSP`). 다른 화면이 `ExecSPTrn`이라고 이 화면도 그럴 거라고 가정하지 않는다.
 
 ## 배분 INSERT
 
