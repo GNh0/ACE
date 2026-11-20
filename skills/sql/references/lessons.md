@@ -53,3 +53,7 @@
 ## 절은 왼쪽 맞춤 (2026-11-20)
 - 실수: FROM·WHERE·AND를 SELECT 끝 글자에 맞춰 오른쪽으로 들여 썼다(`  FROM`, ` WHERE`, `   AND`).
 - 규칙: FROM·WHERE·GROUP BY·ORDER BY는 SELECT와 같은 열에서 시작하고, AND는 두 칸 들인다. 기존 SP에 오른쪽 맞춤이 있어도 따라 하지 않는다.
+
+## 공통코드 이름은 JOIN, 사용자 이름은 함수 (2026-11-20)
+- 실수: 공통코드 이름까지 `F_BA011T_FIND_SUBNM` 함수로 가져오게 했다.
+- 규칙: 공통코드 이름은 `BA011T`를 LEFT OUTER JOIN한다. 사용자 이름은 `F_FIND_USERNM` 함수를 쓴다. [kone.md](kone.md)

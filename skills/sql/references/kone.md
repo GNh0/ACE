@@ -8,8 +8,8 @@ C_KONE 계열 DB(C_KONE060, C_KONE110 등)에서 근호·KH 작성 SP가 자주 
 | `SP_SYSTEM_BA100T_KEYCODE` | SP | 문서번호 채번 |
 | `RETURN_KEYCODE` | 테이블 함수 | 화면 표시 키를 복합키로 분해 |
 | `F_CHECK_CLOSE` | 스칼라 함수 | 년·월 마감 검증 |
-| `F_FIND_USERNM` | 스칼라 함수 | 사용자 이름(기존 코드) |
-| `F_BA011T_FIND_SUBNM` | 스칼라 함수 | 공통코드 이름(기존 코드) |
+| `F_FIND_USERNM` | 스칼라 함수 | 사용자 이름 |
+| `F_BA011T_FIND_SUBNM` | 스칼라 함수 | 공통코드 이름. 기존 코드에만 있다. 새로 쓸 때는 `BA011T` JOIN |
 
 ## SP_XML_LOG_SAVE
 
@@ -111,22 +111,32 @@ END
 
 - 검증하는 일자는 실제로 수불이 잡히는 일자다(입고일, 출고일 등). 수정이면 바뀌기 전 일자와 바뀐 뒤 일자가 다를 수 있는지 확인한다.
 
-## 이름 조회 함수 (F_FIND_USERNM, F_BA011T_FIND_SUBNM)
+## 이름 조회 (사용자 이름은 함수, 공통코드 이름은 JOIN)
 
-표시용 이름 하나만 가져올 때는 **함수를 쓴다.** 이름마다 JOIN을 붙이면 같은 테이블이 여러 번 들어가 쿼리가 길어진다.
+둘을 다르게 쓴다.
+
+| 가져오는 이름 | 방법 |
+| --- | --- |
+| 사용자 이름(등록자·수정자·담당자 등) | **함수** `DBO.F_FIND_USERNM(사용자ID)` |
+| 공통코드 이름(공정명, 구분명 등) | **JOIN** `BA011T`. `F_BA011T_FIND_SUBNM`은 새로 쓰지 않는다. |
 
 ```sql
 SELECT A.DOCNUM
+     , A.PROCCD
+     , B.SUBNM AS PROCNM
      , A.REGEMPNO
      , DBO.F_FIND_USERNM(A.REGEMPNO) AS REGEMPNM
      , A.MODEMPNO
      , DBO.F_FIND_USERNM(A.MODEMPNO) AS MODEMPNM
-     , DBO.F_BA011T_FIND_SUBNM('PR001', A.PROCCD, '%') AS PROCNM
 FROM DOC_HEADER A
+        LEFT OUTER JOIN BA011T B
+                     ON B.MAINCD = 'PR001'
+                     AND A.PROCCD = B.SUBCD
 WHERE A.ORGDIV = @ORGDIV
 ```
 
-- 이 DB들은 SQL Server 2019(호환성 수준 150)이고 세 함수 모두 인라인 대상이다(`SYS.SQL_MODULES.IS_INLINEABLE = 1`). 옵티마이저가 함수를 쿼리 안으로 풀어 넣으므로 SELECT 목록에서 쓰는 한 JOIN과 성능 차이가 크지 않다.
-- JOIN으로 쓰는 경우는 따로 있다: 그 테이블의 **다른 열도 함께** 필요할 때, 이름으로 **WHERE 검색·GROUP BY·ORDER BY**를 할 때, 사업장(`ORGDIV`)까지 맞춰야 할 때다. `F_FIND_USERNM`은 사용자 ID만으로 찾고 사업장 조건이 없다.
+- 사용자 이름은 등록자·수정자처럼 한 조회에 여러 번 나온다. 이름마다 JOIN을 붙이면 같은 테이블이 여러 번 들어가므로 함수를 쓴다. 이 DB들은 SQL Server 2019(호환성 수준 150)이고 함수가 인라인 대상(`SYS.SQL_MODULES.IS_INLINEABLE = 1`)이라 SELECT 목록에서 쓰는 한 느리지 않다.
+- 공통코드 이름은 `BA011T`를 `MAINCD = '코드구분'`과 코드 값으로 LEFT OUTER JOIN한다. 코드 구분이 여러 개면 구분마다 한 번씩 JOIN하고 별칭을 나눈다(`B`, `B1`).
+- 사용자 이름도 JOIN으로 쓰는 경우가 있다: 사용자 테이블의 다른 열이 함께 필요할 때, 이름으로 WHERE 검색·GROUP BY·ORDER BY를 할 때, 사업장(`ORGDIV`)까지 맞춰야 할 때다. `F_FIND_USERNM`은 사용자 ID만으로 찾고 사업장 조건이 없다.
 - 기존 SP에 있는 함수 호출이나 JOIN은 요청 없이 서로 바꾸지 않는다.
 - 다른 서버에서는 버전과 `IS_INLINEABLE`을 먼저 확인한다. 2017 이하이거나 인라인이 안 되면 행마다 함수가 실행되어 건수가 많은 조회에서 느려진다.
