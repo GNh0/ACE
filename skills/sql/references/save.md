@@ -274,6 +274,117 @@ WHERE A.COMPANY_ID = @COMPANY_ID
 
 같은 키 조건으로 해당 헤더를 처리한다. 선택 2건, 미선택 1건, 다른 회사의 동일 번호로 대상·제외 결과를 확인한다.
 
+## 재고 이동 (출고 + 입고를 함께 쓰는 저장)
+
+자재를 한 창고에서 내보내고 다른 창고(출하대기 등)로 들이는 저장이다. 저장 한 번이 출고 테이블과 입고 테이블에 **짝이 되는 행**을 만든다. 수불장·재고 조회가 이 두 테이블을 읽으므로 짝이 어긋나면 재고가 틀어진다. 이름은 가상이다.
+
+```sql
+EXEC SP_SYSTEM_BA100T_KEYCODE @ORGDIV, 'BA100T', @OUTDT, @NEWSEQ OUTPUT;
+
+INSERT INTO STOCK_OUT
+(
+       ORGDIV   , RECDT     , SEQ1     , SEQ2
+     , ORDNUM   , ORDSEQ    , ITEMCD   , QTY
+     , OUTDT    , REGDT     , REGEMPNO , STORAGE
+)
+SELECT @ORGDIV  , @OUTDT    , @NEWSEQ  , ROW_NUMBER() OVER (ORDER BY A.ORDNUM, A.ORDSEQ, A.ITEMCD)
+     , A.ORDNUM , A.ORDSEQ  , A.ITEMCD , A.QTY
+     , @OUTDT   , GETDATE() , @USERID  , (CASE WHEN B.REQLOCA = '3' THEN '3000' ELSE '1001' END)
+FROM @TMP_DETAIL A
+        LEFT OUTER JOIN (
+                         SELECT T.ORDNUM
+                              , T.ORDSEQ
+                              , T.REQLOCA
+                         FROM REQUEST_REV T
+                                 INNER JOIN (
+                                             SELECT T.ORDNUM
+                                                  , T.ORDSEQ
+                                                  , MAX(T.REVNO) AS MAXREVNO
+                                             FROM REQUEST_REV T
+                                             WHERE T.ORGDIV = @ORGDIV
+                                             GROUP BY T.ORDNUM, T.ORDSEQ
+                                            ) T1
+                                            ON T.ORDNUM = T1.ORDNUM
+                                            AND T.ORDSEQ = T1.ORDSEQ
+                                            AND T.REVNO = T1.MAXREVNO
+                         WHERE T.ORGDIV = @ORGDIV
+                        ) B
+                        ON A.ORDNUM = B.ORDNUM
+                        AND A.ORDSEQ = B.ORDSEQ
+WHERE A.CHK = 'Y';
+
+INSERT INTO STOCK_IN
+(
+       ORGDIV   , RECDT     , SEQ1     , SEQ2
+     , ORDNUM   , ORDSEQ    , ITEMCD   , QTY
+     , INDT     , REGDT     , REGEMPNO , STORAGE
+)
+SELECT A.ORGDIV , A.RECDT   , A.SEQ1   , A.SEQ2
+     , A.ORDNUM , A.ORDSEQ  , A.ITEMCD , A.QTY
+     , A.OUTDT  , GETDATE() , @USERID  , (CASE WHEN B.LOCATION = '1' THEN '9999' ELSE '7777' END)
+FROM STOCK_OUT A
+        INNER JOIN ORDER_HEADER B
+                ON A.ORGDIV = B.ORGDIV
+                AND A.ORDNUM = B.ORDNUM
+WHERE A.ORGDIV = @ORGDIV
+  AND A.RECDT = @OUTDT
+  AND A.SEQ1 = @NEWSEQ;
+```
+
+- **입고는 방금 쓴 출고 행을 읽어서 만든다.** 같은 스테이징에서 `ROW_NUMBER()`를 두 번 돌려 두 테이블에 따로 INSERT하면 순번이 서로 다르게 붙을 수 있다. 출고를 먼저 쓰고, 입고는 그 행을 업무 키(`RECDT`, `SEQ1`)로 읽어 같은 `SEQ2`를 쓴다.
+- `ROW_NUMBER()`의 `ORDER BY`는 실제 업무 키로 쓴다. `ORDER BY @ORGDIV`처럼 모든 행이 같은 값이면 순서가 실행마다 달라진다.
+- 창고 코드처럼 조건으로 정해지는 값은 `CASE`로 INSERT 안에서 정한다. 조건 값(요청 사업장 등)이 차수별로 여러 행이면 **최신 차수만** 남긴 파생(`MAX(REVNO)`)을 JOIN한다.
+- 같은 파생 블록을 INSERT마다 복사하지 않는다. 뒤 단계는 앞에서 쓴 대상 행을 읽는다.
+- 디버그용 `SELECT * FROM @TMP…`를 남기지 않는다. SAVE가 결과표를 돌려주면 화면이 엉뚱한 표를 읽는다.
+- 대상 선별이 `TOP 1`이나 `DISTINCT`에 기대고 있으면 키가 중복된다는 뜻이다. 전체 키로 GROUP BY해서 한 행으로 만든다.
+
+삭제는 두 테이블을 함께 지우고, 지우기 전에 **뒤 단계 실적을 깨지 않는지** 수량으로 검증한다.
+
+```sql
+IF EXISTS (
+           SELECT 1
+           FROM (
+                 SELECT T1.CODE AS ORDNUM
+                      , T1.SEQ1 AS ORDSEQ
+                      , SUM(T.QTY) AS DELQTY
+                 FROM @TMP_LIST T
+                         CROSS APPLY DBO.RETURN_KEYCODE(T.ORDKEY) T1
+                 WHERE T.GBN = 'DEL'
+                 GROUP BY T1.CODE, T1.SEQ1
+                ) A
+                   INNER JOIN (
+                               SELECT T.ORDNUM
+                                    , T.ORDSEQ
+                                    , SUM(T.QTY) AS INQTY
+                               FROM STOCK_IN T
+                               WHERE T.ORGDIV = @ORGDIV
+                               GROUP BY T.ORDNUM, T.ORDSEQ
+                              ) B
+                              ON A.ORDNUM = B.ORDNUM
+                              AND A.ORDSEQ = B.ORDSEQ
+                   INNER JOIN (
+                               SELECT T.ORDNUM
+                                    , T.ORDSEQ
+                                    , SUM(T.QTY) AS SALEQTY
+                               FROM SALES_RESULT T
+                               WHERE T.ORGDIV = @ORGDIV
+                               GROUP BY T.ORDNUM, T.ORDSEQ
+                              ) C
+                              ON A.ORDNUM = C.ORDNUM
+                              AND A.ORDSEQ = C.ORDSEQ
+           WHERE B.INQTY - A.DELQTY < C.SALEQTY
+          )
+BEGIN
+    RAISERROR('매출실적 수량보다 출고수량이 적어질 수 없습니다. 삭제 불가 합니다.', 16, 9);
+    RETURN;
+END
+```
+
+- 비교는 `남는 수량(기존 합계 - 삭제 수량) < 뒤 단계 실적 합계`다. 삭제 수량, 기존 합계, 실적 합계를 **각각 같은 키로 먼저 합산**한 뒤 JOIN한다. 합산 전에 JOIN하면 행이 곱해진다.
+- 화면이 표시용 키(`20260129-1`)를 넘기면 `RETURN_KEYCODE`로 분해해서 구성 열로 JOIN한다.
+- 마감 검증([kone.md](kone.md))은 삭제하려는 행의 **실제 출고일**로 한다. XML의 일자가 아니라 대상 테이블 행의 일자를 읽는다.
+- 출고·입고 삭제는 같은 키 조건으로 두 번 쓴다. 한쪽만 지우는 경로가 없어야 한다.
+
 # 검증 예시
 
 Do not infer a new business validation from an example. Apply only the checks required by the actual operation, with its full keys, units and transaction behavior.
