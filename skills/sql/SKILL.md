@@ -16,6 +16,7 @@ description: SQL Server 쿼리·프로시저(SP)를 사용자 방식으로 작�
 | --- | --- | --- |
 | 정렬·정리만 | 의미를 바꾸지 않고 서식만 고친다. 로직 규칙 위반은 고치지 말고 위치만 보고한다. | [style.md](references/style.md) |
 | SELECT 작성·수정 | 결과 한 행의 단위, 포함·제외 조건, 표시용 JOIN과 필수 JOIN을 먼저 정한다. | [select.md](references/select.md), [style.md](references/style.md) |
+| SP를 새로 만들기 | 인자 선언, XML 파싱, 분기 골격을 그대로 따른다. | [procedure.md](references/procedure.md) |
 | SAVE 작성·수정 | 호출 모드(WORKTYPE), 선택 키, XML 행 상태(NEW/MOD/DEL)를 호출부와 맞춘다. | [save.md](references/save.md), [style.md](references/style.md) |
 
 3. 기존 SP를 고치면 **원본 전체**와 **실제 호출부(C# 또는 PB)**를 먼저 읽는다. 새 SP는 사용자에게 헤더에 쓸 작성자 이름과, 작성 방식을 참고할 기존 SP(같은 역할의 SELECT 또는 SAVE)를 확인하고 그 SP를 처음부터 끝까지 읽는다.
@@ -29,6 +30,8 @@ description: SQL Server 쿼리·프로시저(SP)를 사용자 방식으로 작�
 - WHERE 안의 EXISTS·IN 서브쿼리는 JOIN으로 바꾼다(수정·검토 요청일 때). 단 SAVE의 `IF EXISTS` 검증은 유지한다.
 - SAVE에서는 건수 변수, MAX 순번 변수, 중간 결과 테이블 변수, WHILE·커서 행 단위 처리, NEW/EDIT 분기 복사를 쓰지 않는다. 자세한 형태는 [save.md](references/save.md).
 - `@변수`는 문법상 꼭 필요한 것만 둔다.
+- **SAVE SP 안에 트랜잭션 코드(BEGIN TRANSACTION, COMMIT, ROLLBACK, TRY/CATCH)를 쓰지 않는다.** C#의 `ExecSPTrn`이 맡는다. 검증 실패는 `RAISERROR … RETURN`만 한다.
+- FROM·WHERE·ORDER BY는 SELECT와 같은 열에서 시작한다(왼쪽 맞춤). LEFT/RIGHT JOIN에는 `OUTER`를 쓴다. CTE는 꼭 필요할 때만 쓴다.
 - LINQ·중간 테이블·빌드는 기본적으로 쓰지 않는다. 없으면 구현이 어렵거나 성능 차이가 극단적일 때만 쓰고 이유를 말한다.
 
 ## 작업 파일과 정리

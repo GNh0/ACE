@@ -45,3 +45,11 @@
 ## INSERT 긴 값은 줄 끝으로 (KH 3.6.8)
 - 실수: 30자 넘는 값이 줄 중간에 있어 다른 줄의 열을 수십 칸씩 띄웠다.
 - 규칙: 긴 값은 그 줄의 마지막 항목으로 두고 다음 열은 다음 줄에서 시작한다. [style.md](style.md#insert-열-대응)
+
+## SAVE SP에 트랜잭션 코드 금지 (2026-11-20)
+- 실수: SAVE SP 안에 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`TRY/CATCH`나 `@STARTTRANCOUNT`를 넣었다.
+- 규칙: C#의 `ExecSPTrn`이 시작·커밋·롤백을 맡으므로 SP에는 쓰지 않는다. 검증 실패는 `RAISERROR … RETURN`만 한다. [save.md](save.md#트랜잭션)
+
+## 절은 왼쪽 맞춤 (2026-11-20)
+- 실수: FROM·WHERE·AND를 SELECT 끝 글자에 맞춰 오른쪽으로 들여 썼다(`  FROM`, ` WHERE`, `   AND`).
+- 규칙: FROM·WHERE·GROUP BY·ORDER BY는 SELECT와 같은 열에서 시작하고, AND는 두 칸 들인다. 기존 SP에 오른쪽 맞춤이 있어도 따라 하지 않는다.

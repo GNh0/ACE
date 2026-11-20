@@ -6,7 +6,7 @@
 
 ## Syntax and naming
 
-- 공백 4칸, 괄호는 별도 줄. 한 줄 return도 if/else·반복문의 중괄호 안에 둔다. 기존 else-if와 조기 반환을 유지한다.
+- 공백 4칸, 괄호는 별도 줄. if/else·반복문은 한 줄이어도 항상 중괄호를 쓴다(`if (...) return;` 형태는 쓰지 않는다). 기존 else-if와 조기 반환 구조는 유지한다.
 - DataTable·DataRow·DataSet·기본형을 명시한다. get 블록, 명시적 대입, switch 분기를 유지한다. 지역명은 str/dt/dr/ds와 화면 관례를 따른다.
 - TryParse 성공 여부와 변환 값은 별도 if로 확인한다. 화면 표시 문자열 조합은 보간을 쓴다. SQL·XML·키의 형식과 외부 식별자는 보존한다. 앱 액션 Tag와 대응 case는 대문자로 맞춘다.
 
@@ -48,3 +48,21 @@ dtList.Rows.Add(drNew);
 - 요구 형식이 있으면 그대로 쓰고 그 외에는 N0/N2보다 사용자 지정 형식을 우선한다. 생성자·공통 Repository 초기화를 먼저 확인한다.
 - 합계는 SummaryItem.DisplayFormat 또는 GridColumnSummaryItem에 둔다. 접미사·정렬·SummaryType·FieldName을 보존하고 관련 ToString·string.Format·보간 표기도 맞춘다.
 - 타입·정밀도·반올림·문화권·음수/0 표기를 보존한다. 셀 표시·입력 마스크·Repository는 해당 속성 변경이 필요할 때 수정한다. [숫자 형식](https://learn.microsoft.com/en-us/dotnet/standard/base-types/custom-numeric-format-strings), [DevExpress 합계](https://docs.devexpress.com/WindowsForms/DevExpress.XtraGrid.GridSummaryItem.DisplayFormat).
+
+## 기존 API를 쓴다
+
+새 헬퍼나 직접 구현을 만들기 전에 대상 프로젝트에 이미 있는 방법을 쓴다. 전체 형태는 [화면 골격](screen-skeleton.md)을 본다.
+
+| 하지 않는 것 | 대신 |
+| --- | --- |
+| 날짜 컨트롤에 `DateTime.Today` 등을 직접 대입 | 컨트롤의 `SetToDay(int)` |
+| 선택 행을 루프로 하나씩 삭제 | 그리드의 `DeleteSelectedRows()` |
+| 화면에서 MAX+1로 순번 계산 | SAVE SP가 채번한다. 화면은 순번을 만들지 않는다. |
+| 원본 값을 열마다 비교해 바뀐 행 고르기 | `DataRowState`와 `DataTableToXml`의 행 상태 인자 |
+| 입력 컨트롤의 `Tag`를 SP 값으로 전달 | 컨트롤의 `EditValue`나 별도 키 컨트롤 |
+| 짧다는 이유로 새 UI·데이터 헬퍼 추가 | 기존 이벤트·저장 경계를 유지한다. |
+| 요청에 없는 저장 차단 조건·확인창 추가 | 기존 UI/XML/SP 검증을 따른다. 업무 제한을 새로 만들지 않는다. |
+| NEW/EDIT 진입 때 불필요한 재조회 | 이미 있는 헤더·상세·스키마를 재사용한다. |
+| 새 상세 행에 헤더 값을 전부 복사 | XML/SP가 상세에 요구하는 필드만 대입한다. |
+
+`FocusedRowChanged`에서 편집 중 행 이동을 막아야 하면, 그 보호 코드를 `FocusedRowHandle < 0` 조기 반환보다 **앞에** 둔다. 필터 행에 포커스가 가면 보호를 건너뛰기 때문이다.

@@ -21,3 +21,11 @@
 ## SpinEdit 연결 확인 요청 ≠ 표시 형식 요청
 - 실수: "SpinEdit이 연결되지 않은 것 같다"는 말에 DisplayFormat/EditMask를 추가했다.
 - 규칙: 선언·생성·RepositoryItems 등록·ColumnEdit 연결을 확인한다. 형식 속성은 사용자가 따로 요청할 때만. [screen-behavior.md](screen-behavior.md)
+
+## 한 줄 if도 항상 중괄호 (2026-11-20)
+- 실수: 기존 화면을 따라 `if (...) return;`처럼 중괄호 없이 썼다.
+- 규칙: if·else·반복문은 한 줄이어도 중괄호를 쓴다. [coding-style.md](coding-style.md)
+
+## 저장 트랜잭션은 ExecSPTrn이 맡는다 (2026-11-20)
+- 실수: 화면이나 SP에 트랜잭션·롤백 코드를 따로 넣었다.
+- 규칙: 저장은 `dbClient.ExecSPTrn`으로 부르고, 화면과 SP에는 트랜잭션 코드를 쓰지 않는다. [screen-skeleton.md](screen-skeleton.md)

@@ -1,6 +1,6 @@
 # 저장 예시
 
-아래는 가상 계약이다. 실제 키·자료형·상태문자·XML 경로·트랜잭션은 대상 원본과 동작하는 같은 역할의 SAVE를 따른다.
+아래는 가상 계약이다. 실제 키·자료형·상태문자·XML 경로는 대상 원본과 동작하는 같은 역할의 SAVE를 따른다.
 
 ## SAVE 고정 규칙
 
@@ -9,7 +9,8 @@
 | 금지 | 대신 |
 | --- | --- |
 | `WITH (UPDLOCK, HOLDLOCK)` 등 잠금 힌트(원본·참고 SP에 있던 것 포함) | 힌트 없이 조회한다. 사용자가 이번 작업에서 명시 요청한 힌트만 남긴다. |
-| `IF @WORKTYPE = 'DELETE' BEGIN … COMMIT … RETURN END` 뒤에 나머지 모드를 조건 없이 이어 쓰기, 여러 곳의 COMMIT | 아래 골격의 IF/ELSE IF 분기, 끝에서 COMMIT 한 번 |
+| `IF @WORKTYPE = 'DELETE' BEGIN … RETURN END` 뒤에 나머지 모드를 조건 없이 이어 쓰기 | 아래 골격의 IF/ELSE IF 분기 |
+| SP 안의 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`BEGIN TRY/CATCH`, `@STARTTRANCOUNT`(원본에 있던 것 포함) | 쓰지 않는다. C#의 `ExecSPTrn`이 트랜잭션 시작·커밋·롤백을 맡는다. [트랜잭션](#트랜잭션) |
 | `@NEWCOUNT`·`@MODCOUNT`·`@DELCOUNT` 같은 건수 변수, `IF @@ROWCOUNT <> @변수`, `IF @CNT > 0` | 쓰기 전 `IF EXISTS` / `IF NOT EXISTS` 검증(전체 키, LEFT OUTER JOIN … IS NULL, 중복 키 GROUP BY HAVING) |
 | `SELECT @LASTSEQ = ISNULL(MAX(…), 0)` 뒤 `@LASTSEQ + RN`, 스테이징에 순번을 먼저 `UPDATE` | INSERT 안에서 `ISNULL(C.SEQ, 0) + ROW_NUMBER() OVER (ORDER BY …)`와 파생 MAX JOIN. 뒤 단계는 쓴 대상 행을 업무 키로 JOIN한다. |
 | 쓰기 문장을 감싼 WHILE·커서 루프에서 중첩 루프·`SELECT TOP 1 @변수`·루프 변수 여러 개로 한 행씩 처리 | [배분 INSERT](#배분-insert)처럼 한 문장 안의 JOIN·파생(누적 비교)으로 쓴다. 루프는 집합으로 풀 수 없을 때만 쓰고 이유를 밝힌다. |
@@ -26,16 +27,10 @@
 | `@NEWSEQ`, `@OUTSEQ` | 채번 프로시저의 OUTPUT 인자 |
 | `@PURDT` 같은 채번 기준일 | EXEC 인자에는 식·하위 쿼리를 쓸 수 없다 |
 | `@PURNUM` 같은 문서번호 | NEW에서 생성해 여러 문장에서 쓴다 |
-| `@STARTTRANCOUNT` | 시작 시점의 `@@TRANCOUNT`를 저장한다 |
 
 Codex 산출물 폴더를 거치지 않은 근호 작성 SAVE(`sp_MA000100_SAVE`의 `@REQNUM`·`@REQDT`·`@NEWSEQ`, `sp_QC100100_SAVE`의 `@QCNUM`)도 이 범위다. 그 밖의 헤더 값은 `@TMP_HEADER`를 JOIN해 읽는다.
 
 ```sql
-IF @STARTTRANCOUNT = 0
-BEGIN
-    BEGIN TRANSACTION
-END
-
 IF @WORKTYPE IN ('EDIT', 'DELETE')
 BEGIN
     IF EXISTS (
@@ -120,14 +115,18 @@ BEGIN
 
     SET @OUTPUT = @DOCUMENT_NO
 END
-
-IF @STARTTRANCOUNT = 0
-BEGIN
-    COMMIT TRANSACTION
-END
 ```
 
-검증 실패는 분기 안에서 `RAISERROR … RETURN`으로 끝내고 CATCH가 롤백한다. 쓰기 뒤에 건수를 다시 세지 않는다. 같은 업무의 모드 조건을 준비·검증·쓰기마다 반복하지 않는다. 참고 SP에 같은 형태가 있어도 유지할 근거가 아니다.
+검증 실패는 분기 안에서 `RAISERROR … RETURN`으로 끝낸다. C#의 `ExecSPTrn`이 예외를 받아 롤백한다. 쓰기 뒤에 건수를 다시 세지 않는다. 같은 업무의 모드 조건을 준비·검증·쓰기마다 반복하지 않는다. 참고 SP에 같은 형태가 있어도 유지할 근거가 아니다.
+
+## 트랜잭션
+
+SAVE SP 안에는 트랜잭션 코드를 쓰지 않는다.
+
+- 화면은 `dbClient.ExecSPTrn(...)`으로 SAVE를 부른다. 이 메서드가 호출 전에 트랜잭션을 시작하고, 성공하면 커밋하고, 예외가 나면 롤백한다.
+- SP는 검증 실패 시 `RAISERROR('메시지', 16, 1); RETURN;`만 한다. 심각도 16 오류는 C#에 예외로 올라가서 그때까지의 쓰기가 전부 롤백된다.
+- SP 안에서 따로 `ROLLBACK`하면 바깥 트랜잭션까지 끝나서 266 오류(트랜잭션 수 불일치)가 난다.
+- 예외: 호출부가 `ExecSPTrn`이 아닌 SP(트랜잭션 없이 부르는 `ExecSP`, 다른 SP나 외부 시스템이 부르는 SP)는 호출부를 확인하고 사용자에게 트랜잭션을 어디서 잡을지 묻는다.
 
 ## 배분 INSERT
 
@@ -207,7 +206,7 @@ BEGIN
 END
 ```
 
-재고가 모자라면 배분 합계가 요청보다 작아 뒤의 검증이 실패하고 CATCH가 롤백한다. EDIT에서 다시 배분할 행만 쓰려면 A에 그 행의 업무 키 조건(이미 출고가 없는 행 등)을 더한다. 같은 키의 요청 2행, 재고 여러 행에 걸친 배분, 재고 부족, 다른 회사의 같은 LOT을 확인한다.
+재고가 모자라면 배분 합계가 요청보다 작아 뒤의 검증이 실패하고 호출부(`ExecSPTrn`)가 롤백한다. EDIT에서 다시 배분할 행만 쓰려면 A에 그 행의 업무 키 조건(이미 출고가 없는 행 등)을 더한다. 같은 키의 요청 2행, 재고 여러 행에 걸친 배분, 재고 부족, 다른 회사의 같은 LOT을 확인한다.
 
 ## Parsed rows and NEW
 
@@ -233,7 +232,7 @@ WHERE A.CHANGE_STATE = 'NEW'
 | 이름 변경에만 필요한 수정 | 해당 변경 분기 안에서 처리 |
 | 두 모드가 같은 결과를 반환하거나 같은 해제를 수행 | 자료 의존성이 같은 공통 위치에서 한 번 실행 |
 
-같은 모드를 준비·검증·쓰기마다 다시 검사하지 않는다. 기존 호출자가 요구하는 공통 XML 전처리·검증·트랜잭션의 시작/종료·오류 처리는 해당 범위에 둔다. 검증을 바꾸면 [검증 예시](#검증-예시)를 대조한다.
+같은 모드를 준비·검증·쓰기마다 다시 검사하지 않는다. 기존 호출자가 요구하는 공통 XML 전처리·검증은 해당 범위에 둔다. 검증을 바꾸면 [검증 예시](#검증-예시)를 대조한다.
 
 ## MOD and DEL
 
@@ -261,7 +260,7 @@ WHERE A.COMPANY_ID = @COMPANY_ID
 
 ## Multiple-master-delete
 
-여러 문서의 삭제 키를 받은 경우 선택한 전체 키 집합을 끝까지 유지한다. 삭제 가능 조건을 확인하고 원래 트랜잭션에서 연관 상세를 먼저, 헤더를 다음에 삭제한다.
+여러 문서의 삭제 키를 받은 경우 선택한 전체 키 집합을 끝까지 유지한다. 삭제 가능 조건을 확인하고 연관 상세를 먼저, 헤더를 다음에 삭제한다.
 
 ```sql
 DELETE A
@@ -350,7 +349,7 @@ Check equal-to-limit and over-limit proposals, duplicate source keys, retained/d
 - 호출자의 모드 문자열, Added/Modified/Deleted 행 선별, XML TableName과 SAVE 분기·XML 경로(`/ROOT/<TableName>`)를 맞춘다.
 - 선택한 마스터 키 전체를 XML에서 UPDATE/DELETE까지 유지한다. 편집 중 상세 삭제, 저장된 문서 삭제, 행별 인쇄와 저장 배치를 구분한다.
 - 복합키는 구성 열 전부로 JOIN한다. 키 파싱은 기존 위치에 둔다.
-- 채번은 실제 상위 키·트랜잭션 안에서 한다. 상세 순번은 INSERT 안에서 파생 MAX + ROW_NUMBER로 매긴다.
+- 채번은 실제 상위 키 범위 안에서 한다. 상세 순번은 INSERT 안에서 파생 MAX + ROW_NUMBER로 매긴다.
 - 수량 검증은 전체 연결 키·같은 단위로 비교한다. EDIT에서 자기 문서 수량을 이중 집계하지 않는다.
 - 연동을 주석 처리하라는 요청은 원래 본문을 남기고 실행만 막는다.
 - 같은 모드의 결과표는 한 분기 안에서 호출자가 읽는 순서대로 반환한다.

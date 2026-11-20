@@ -15,6 +15,7 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 
 | 바꾸는 부분 | 볼 문서 |
 | --- | --- |
+| 화면을 새로 만들기, 조회·저장 메서드 형태 | [screen-skeleton.md](references/screen-skeleton.md) |
 | 메서드·이벤트·문법 | [coding-style.md](references/coding-style.md) |
 | 컨트롤·Repository·이름 | [controls.md](references/controls.md) |
 | Designer 배치·이관 | [designer.md](references/designer.md) |
@@ -32,6 +33,8 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 - 라벨·한 줄 입력 높이는 같은 화면의 같은 역할 컨트롤과 맞춘다. 폰트·정렬·버튼은 실제 초기화 값을 유지한다.
 - 그리드 새로 만들 때는 [grid.md](references/grid.md) 기본값만 쓴다. 셀 TextOptions, DisplayFormat, EditMask, 뷰 전체 Editable/ReadOnly를 임의로 추가하지 않는다.
 - 사용자 컨트롤의 기본값을 덮어쓰지 않는다. 필요한 속성만 바꾼다.
+- if·else·반복문은 한 줄이어도 **항상 중괄호**를 쓴다. 기존 화면에 중괄호 없는 한 줄 if가 있어도 새로 쓰는 코드는 중괄호를 쓴다.
+- 저장은 `dbClient.ExecSPTrn`으로 부른다. 트랜잭션은 이 메서드가 맡으므로 화면이나 SP에 따로 만들지 않는다.
 - 정적 배치는 Designer에, 동적 바인딩·업무 코드는 코드비하인드에 둔다. 이벤트는 기존 구독 위치에 한 번만 연결한다.
 - LINQ·중간 테이블·빌드는 기본적으로 쓰지 않는다. 없으면 구현이 어렵거나 성능 차이가 극단적일 때만 쓰고 이유를 말한다.
 - 화면과 SP가 같이 바뀌면 sql 스킬도 따르고, SP 인자·XML TableName·행 상태·결과표 순서·바인딩 FieldName을 양쪽에서 하나씩 대조한다.
