@@ -296,7 +296,9 @@ this.col<Role>_<FIELD>.Visible = true;
 this.col<Role>_<FIELD>.VisibleIndex = <N>;
 ```
 
-- 머리글은 가운데 정렬이다. 셀 정렬(`AppearanceCell.TextOptions`)은 열의 27%에만 있었다. 기본으로 넣지 않는다.
+- **열에는 글꼴을 지정하지 않는다.** 셀과 머리글 모두 `Options.UseFont = true`만 켜고 `Font = …` 줄은 쓰지 않는다. 글꼴은 그리드에서 물려받는다.
+- 머리글 정렬은 가로·세로 모두 가운데가 기본이다(`HAlignment = Center`, `VAlignment = Center`).
+- 셀 정렬(`AppearanceCell.TextOptions`)은 열의 27%에만 있었다. 기본으로 넣지 않는다.
 - 조회만 하는 열은 `AllowEdit = false`와 `ReadOnly = true`를 함께 쓴다(열의 72%). 편집하는 열은 두 줄을 모두 뺀다.
 - 편집기가 필요한 열은 `this.col<Role>_<FIELD>.ColumnEdit = this.rps…;`를 더한다.
 

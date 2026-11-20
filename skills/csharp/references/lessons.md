@@ -29,3 +29,7 @@
 ## 저장 트랜잭션은 ExecSPTrn이 맡는다 (2026-11-20)
 - 실수: 화면이나 SP에 트랜잭션·롤백 코드를 따로 넣었다.
 - 규칙: 저장은 `dbClient.ExecSPTrn`으로 부르고, 화면과 SP에는 트랜잭션 코드를 쓰지 않는다. [screen-skeleton.md](screen-skeleton.md)
+
+## 그리드 열에 글꼴을 지정하지 않는다 (2026-11-20)
+- 실수: 새 그리드 열의 셀·머리글 Appearance에 `Font = Tahoma 9pt`를 넣었다.
+- 규칙: 열은 셀과 머리글의 `Options.UseFont = true`만 켜고 글꼴은 지정하지 않는다. 머리글은 가로·세로 가운데 정렬이 기본이다. [control-blocks.md](control-blocks.md#gridcolumn)

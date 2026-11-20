@@ -10,6 +10,6 @@ For reports, preserve H/D/F, group, band, and page order. Review shared paths fo
 
 ## C# grid generation from a DataWindow
 
-When generating a C# grid from a DataWindow, use the csharp skill's grid.md defaults (from the user's `DataWindowToXml.html`). Use actual DataWindow captions, column order, widths and visibility. Do not impose the template's Tahoma 9pt or display values on an existing screen; current Designer values take priority there.
+When generating a C# grid from a DataWindow, use the csharp skill's grid.md defaults (from the user's `DataWindowToXml.html`). Use actual DataWindow captions, column order, widths and visibility. Do not assign a font to generated columns (they only set `UseFont = true`), and do not impose template display values on an existing screen; current Designer values take priority there.
 
 Editing modes per column: read-only → `AllowEdit=false` + `ReadOnly=true`; action column (button Repository) → `ReadOnly=true` only; editable → neither. Do not add `OptionsBehavior` or EditMask/DisplayFormat when connecting a Spin Repository. If another grid on the same screen already has `rpsSpinQTY`, the detail grid uses `rpsDetailSpinQTY`; do not rename existing Repositories.
