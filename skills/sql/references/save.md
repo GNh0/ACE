@@ -13,7 +13,7 @@
 | SP 안의 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`BEGIN TRY/CATCH`·`THROW`, `SET XACT_ABORT ON`, `@STARTTRANCOUNT`(원본에 있던 것 포함) | 호출부가 `ExecSPTrn`이면 쓰지 않는다. `ExecSP`이면 원본의 트랜잭션을 그대로 둔다. 먼저 호출부를 확인한다. [트랜잭션](#트랜잭션) |
 | `@NEWCOUNT`·`@MODCOUNT`·`@DELCOUNT` 같은 건수 변수, `IF @@ROWCOUNT <> @변수`, `IF @CNT > 0` | 쓰기 전 `IF EXISTS` / `IF NOT EXISTS` 검증(전체 키, LEFT OUTER JOIN … IS NULL, 중복 키 GROUP BY HAVING) |
 | `SELECT @LASTSEQ = ISNULL(MAX(…), 0)` 뒤 `@LASTSEQ + RN`, 스테이징에 순번을 먼저 `UPDATE` | INSERT 안에서 `ISNULL(C.SEQ, 0) + ROW_NUMBER() OVER (ORDER BY …)`와 파생 MAX JOIN. 뒤 단계는 쓴 대상 행을 업무 키로 JOIN한다. |
-| 쓰기 문장을 감싼 WHILE·커서 루프에서 중첩 루프·`SELECT TOP 1 @변수`·루프 변수 여러 개로 한 행씩 처리 | [배분 INSERT](#배분-insert)처럼 한 문장 안의 JOIN·파생(누적 비교)으로 쓴다. 루프는 집합으로 풀 수 없을 때만 쓰고 이유를 밝힌다. |
+| 쓰기 문장을 감싼 WHILE·커서 루프에서 중첩 루프·`SELECT TOP 1 @변수`·루프 변수 여러 개로 한 행씩 처리 | [배분 INSERT](#배분-insert)처럼 한 문장 안의 JOIN·파생(누적 비교)으로 쓴다. 루프는 집합으로 풀 수 없을 때만 쓰고 이유를 밝힌다. 공통 채번 SP를 행마다 불러야 하는 경우가 그 예외다([kone.md](kone.md#sp_system_ba100t_keycode)): 채번 호출만 루프에 두고 쓰기는 루프 밖에서 집합으로 한다. |
 | NEW·EDIT 분기에 같은 상세 INSERT·배분·사후 검증을 복사 | `ELSE IF @WORKTYPE IN ('NEW', 'EDIT')` 안의 모드별 부분 뒤에 한 번만 둔다. |
 | `OUTPUT INSERTED.… INTO @테이블`로 쓴 키를 모아 다시 읽기 | 뒤 단계가 쓴 대상 행을 업무 키로 JOIN한다. |
 | 한 번 대입하고 한 번 읽는 변수, 선언만 하거나 대입만 하고 읽지 않는 변수, 헤더 테이블 변수 값을 복사한 변수 | 그 자리에서 식을 쓰거나 테이블 변수·대상 행을 JOIN해 읽는다. |
