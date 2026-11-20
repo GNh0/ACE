@@ -10,7 +10,7 @@
 | --- | --- |
 | `WITH (UPDLOCK, HOLDLOCK)` 등 잠금 힌트(원본·참고 SP에 있던 것 포함) | 힌트 없이 조회한다. 사용자가 이번 작업에서 명시 요청한 힌트만 남긴다. |
 | `IF @WORKTYPE = 'DELETE' BEGIN … RETURN END` 뒤에 나머지 모드를 조건 없이 이어 쓰기 | 아래 골격의 IF/ELSE IF 분기 |
-| SP 안의 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`BEGIN TRY/CATCH`, `@STARTTRANCOUNT`(원본에 있던 것 포함) | 쓰지 않는다. C#의 `ExecSPTrn`이 트랜잭션 시작·커밋·롤백을 맡는다. [트랜잭션](#트랜잭션) |
+| SP 안의 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`BEGIN TRY/CATCH`·`THROW`, `SET XACT_ABORT ON`, `@STARTTRANCOUNT`(원본에 있던 것 포함) | 쓰지 않는다. C#의 `ExecSPTrn`이 트랜잭션 시작·커밋·롤백을 맡는다. [트랜잭션](#트랜잭션) |
 | `@NEWCOUNT`·`@MODCOUNT`·`@DELCOUNT` 같은 건수 변수, `IF @@ROWCOUNT <> @변수`, `IF @CNT > 0` | 쓰기 전 `IF EXISTS` / `IF NOT EXISTS` 검증(전체 키, LEFT OUTER JOIN … IS NULL, 중복 키 GROUP BY HAVING) |
 | `SELECT @LASTSEQ = ISNULL(MAX(…), 0)` 뒤 `@LASTSEQ + RN`, 스테이징에 순번을 먼저 `UPDATE` | INSERT 안에서 `ISNULL(C.SEQ, 0) + ROW_NUMBER() OVER (ORDER BY …)`와 파생 MAX JOIN. 뒤 단계는 쓴 대상 행을 업무 키로 JOIN한다. |
 | 쓰기 문장을 감싼 WHILE·커서 루프에서 중첩 루프·`SELECT TOP 1 @변수`·루프 변수 여러 개로 한 행씩 처리 | [배분 INSERT](#배분-insert)처럼 한 문장 안의 JOIN·파생(누적 비교)으로 쓴다. 루프는 집합으로 풀 수 없을 때만 쓰고 이유를 밝힌다. |
