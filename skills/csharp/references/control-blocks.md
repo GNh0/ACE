@@ -4,7 +4,7 @@
 
 ## 원칙
 
-- **화면 구성은 Designer에, 이벤트 연결은 비하인드 코드에 둔다.** 컨트롤 생성·배치·속성은 `*.Designer.cs`의 `InitializeComponent()`에 쓴다. 이벤트 구독(`+=`)은 `*.cs` 생성자에서 `InitializeComponent()` 다음에 쓴다. 집계에서도 구독의 약 90%가 비하인드 코드에 있었다.
+- **화면 구성은 Designer에, 이벤트 연결은 비하인드 코드에 둔다.** 컨트롤 생성·배치·속성은 `*.Designer.cs`의 `InitializeComponent()`에 쓴다. 이벤트 구독(`+=`)은 `*.cs` 생성자에서 `InitializeComponent()` 다음에 이름 있는 핸들러로 한 번씩 쓴다. 집계에서도 구독의 약 90%가 비하인드 코드에 있었다.
 - Designer에 이벤트 구독을 새로 쓰지 않는다. 기존 화면의 Designer에 이미 있는 구독은 요청 없이 옮기지 않는다.
 - 글꼴·스킨·높이 값은 **같은 화면의 같은 종류 컨트롤**에서 가져온다. 아래 값은 C_KONE110_1 기준이며 다른 프로젝트는 다를 수 있다.
 
@@ -333,9 +333,7 @@ this.col<Role>_<FIELD>.Visible = true;
 this.col<Role>_<FIELD>.VisibleIndex = <N>;
 ```
 
-- **열에는 글꼴을 지정하지 않는다.** 셀과 머리글 모두 `Options.UseFont = true`만 켜고 `Font = …` 줄은 쓰지 않는다. 글꼴은 그리드에서 물려받는다.
-- 머리글 정렬은 가로·세로 모두 가운데가 기본이다(`HAlignment = Center`, `VAlignment = Center`).
-- 셀 정렬(`AppearanceCell.TextOptions`)은 열의 27%에만 있었다. 기본으로 넣지 않는다.
+- 열 글꼴(`Font` 줄 없음, 그리드에서 물려받음)과 머리글·셀 정렬 기본값은 [grid.md](grid.md#appearance)를 따른다. 셀 정렬(`AppearanceCell.TextOptions`)은 집계에서 열의 27%에만 있었다.
 - 조회만 하는 열은 `AllowEdit = false`와 `ReadOnly = true`를 함께 쓴다(열의 72%). 편집하는 열은 두 줄을 모두 뺀다.
 - 편집기가 필요한 열은 `this.col<Role>_<FIELD>.ColumnEdit = this.rps…;`를 더한다.
 

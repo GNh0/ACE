@@ -4,11 +4,11 @@
 
 ## SAVE 고정 규칙
 
-사용자가 따로 말하지 않아도 SAVE를 새로 쓰거나 기존 SAVE의 로직을 고칠 때 지킨다. 원본에 아래와 다른 형태가 있으면 그것도 고친다. 서식 정리만 맡았으면 바꾸지 않고 해당 위치를 보고한다.
+사용자가 따로 말하지 않아도 SAVE를 새로 쓰거나 기존 SAVE의 로직을 고칠 때 지킨다. 원본에 아래와 다른 형태가 있으면 그것도 고친다. 서식 정리만 맡았으면 바꾸지 않고 해당 위치를 보고한다. 잠금 힌트만은 예외로, 서식 정리만 맡았어도 지우고 지운 위치를 답변에 적는다.
 
 | 금지 | 대신 |
 | --- | --- |
-| `WITH (UPDLOCK, HOLDLOCK)` 등 잠금 힌트(원본·참고 SP에 있던 것 포함) | 힌트 없이 조회한다. 사용자가 이번 작업에서 명시 요청한 힌트만 남긴다. |
+| `WITH (UPDLOCK, HOLDLOCK)` 등 잠금 힌트(원본·참고 SP에 있던 것 포함) | 힌트 없이 조회한다. [잠금 힌트](#잠금-힌트) |
 | `IF @WORKTYPE = 'DELETE' BEGIN … RETURN END` 뒤에 나머지 모드를 조건 없이 이어 쓰기 | 아래 골격의 IF/ELSE IF 분기 |
 | SP 안의 `BEGIN TRANSACTION`·`COMMIT`·`ROLLBACK`·`BEGIN TRY/CATCH`·`THROW`, `SET XACT_ABORT ON`, `@STARTTRANCOUNT`(원본에 있던 것 포함) | 호출부가 `ExecSPTrn`이면 쓰지 않는다. `ExecSP`이면 원본의 트랜잭션을 그대로 둔다. 먼저 호출부를 확인한다. [트랜잭션](#트랜잭션) |
 | `@NEWCOUNT`·`@MODCOUNT`·`@DELCOUNT` 같은 건수 변수, `IF @@ROWCOUNT <> @변수`, `IF @CNT > 0` | 쓰기 전 `IF EXISTS` / `IF NOT EXISTS` 검증(전체 키, LEFT OUTER JOIN … IS NULL, 중복 키 GROUP BY HAVING) |
@@ -119,15 +119,42 @@ END
 
 검증 실패는 분기 안에서 `RAISERROR … RETURN`으로 끝낸다. C#의 `ExecSPTrn`이 예외를 받아 롤백한다. 쓰기 뒤에 건수를 다시 세지 않는다. 같은 업무의 모드 조건을 준비·검증·쓰기마다 반복하지 않는다. 참고 SP에 같은 형태가 있어도 유지할 근거가 아니다.
 
+## 잠금 힌트
+
+잠금 힌트(`UPDLOCK`, `HOLDLOCK` 등)는 절대 쓰지 않는다. 원본·참고 SP에 있어도 지운다. 사용자가 이번 작업에서 직접 요청한 경우만 남긴다.
+
+## 화면이 null로 넘길 수 있는 인자
+
+XML 인자나 선택 인자를 화면이 `null`로 넘길 수 있으면 SP 선언에 `= NULL` 기본값을 둔다. 호출부에서 모드마다 그 인자에 값이 들어가는지 확인한다(예: 삭제 때 상세 XML을 대입하지 않고 `null`로 두는 화면).
+
+- ADO.NET은 값이 `null`인 인자를 보내지 않는다. 기본값이 없으면 "expects parameter '@…', which was not supplied" 오류로 저장이 실패한다. 화면 쪽 동작은 csharp 스킬 `references/kone120.md`의 "인자 null" 행과 `references/verify.md` 대조표 3행에 있다.
+- 기본값만 두면 된다. `SP_XML_PREPAREDOCUMENT`에 NULL을 넘겨도 오류가 나지 않고 `OPENXML`은 0행을 돌려준다.
+- 롤백 테스트도 화면처럼 그 인자를 빼고 부른다. [verify.md](verify.md#반드시-지킬-것)
+
+## 조회와 저장의 행 단위
+
+SAVE를 쓰거나 고칠 때 "저장이 쓰는 상세 한 행"과 "DETAIL 조회가 돌려주는 한 행"이 같은 단위인지 대조한다. 조회 → 그대로 수정 저장 → 다시 조회했을 때 수량·금액이 변하지 않아야 한다. 합칠 때 `MAX(단가)`처럼 행마다 다른 값을 하나만 남기는 집계가 있으면 단위가 틀린 것이다.
+
+## 수정 저장의 행 상태
+
+- 상세는 `GBN`으로 나눠 `DEL`은 삭제, **`MOD`만 UPDATE**, `NEW`만 INSERT한다. EDIT에서 상세를 전부 지우고 다시 넣지 않는다. 기존 SP가 "전부 지우고 다시 넣기"여도 따라 하지 않는다. 형태는 [procedure.md](procedure.md#저장save-sp--헤더--상세)의 골격과 같다.
+- 안 바뀐 행(`UNC`)은 건드리지 않고 수정자도 찍지 않는다.
+- 헤더에서 상세로 복사해 둔 값(일자·거래처·화폐·환율)이 있으면 수정자 없이 상세 전체에 따로 맞춘다.
+- `MOD` 행은 모든 대상 테이블(짝이 되는 불출 등)에서 UPDATE한다. 삭제 후 재입력과 채번은 `NEW` 행에만 한다.
+- 채번은 `NEW` 행이 있을 때만 한다.
+- 두 테이블에 짝이 되는 행을 넣을 때는 같은 정렬 키(유일한지 먼저 검증)로 번호를 매긴다.
+
 ## 트랜잭션
 
-트랜잭션을 어디서 잡는지는 **호출부가 정한다.** SP를 고치기 전에 화면 코드에서 이 SP를 부르는 줄을 찾아 확인한다.
+트랜잭션을 어디서 잡는지는 **호출부가 정한다.** SP를 고치기 전에 화면 코드에서 이 SP를 부르는 줄을 찾아 확인한다. 트랜잭션 코드는 `BEGIN TRANSACTION`, `COMMIT`, `ROLLBACK`, `BEGIN TRY/CATCH`, `THROW`, `SET XACT_ABORT ON`, `@STARTTRANCOUNT`다.
 
 | 호출부 | SP 안의 트랜잭션 |
 | --- | --- |
 | `dbClient.ExecSPTrn("sp_…_SAVE", …)` | 쓰지 않는다. 원본에 있으면 뺀다. |
 | `dbClient.ExecSP("sp_…_SAVE", …)` | **빼지 않는다.** 원본의 `BEGIN TRY / BEGIN TRANSACTION / COMMIT / CATCH ROLLBACK`을 그대로 둔다. |
-| 다른 SP·외부 시스템이 부르거나, 호출부를 찾지 못함 | 빼지 않고 사용자에게 묻는다. |
+| 다른 SP·외부 시스템이 부르거나, 호출부를 찾지 못함 | 빼지 않고 사용자에게 묻는다. 물어볼 수 없는 상황이면 **빼지 않는 쪽**이 기본이다. |
+
+- 검증 실패는 어느 경우든 `RAISERROR … RETURN`이다.
 
 - `ExecSPTrn`은 호출 전에 트랜잭션을 시작하고, 성공하면 커밋하고, 예외가 나면 롤백한다. SP는 검증 실패 시 `RAISERROR('메시지', 16, 1); RETURN;`만 하면 그때까지의 쓰기가 전부 롤백된다. 이 경우 SP 안에서 따로 `ROLLBACK`하면 바깥 트랜잭션까지 끝나서 266 오류(트랜잭션 수 불일치)가 난다.
 - `ExecSP`는 트랜잭션을 걸지 않는다. 이때 SP의 트랜잭션을 빼면, 쓰는 도중 오류(문자열 잘림, NOT NULL 위반, 교착 등)가 났을 때 앞에서 쓴 행이 남는다. 검증을 쓰기 앞으로 옮겨도 이 위험은 없어지지 않는다.
@@ -394,6 +421,10 @@ END
 # 검증 예시
 
 Do not infer a new business validation from an example. Apply only the checks required by the actual operation, with its full keys, units and transaction behavior.
+
+## 요청에 없는 검증
+
+요청에 없는 검증(`IF EXISTS … RAISERROR`)을 새로 넣지 않는다. 순번 짝을 맞추거나 JOIN 누락을 막으려는 "중복 선택", "미등록 품목" 같은 검증도 같다. 검증을 추가하지 않고도 맞게 동작하도록 짠다(예: 스테이징 `SEQ`로 순번 매기기). 그래도 필요해 보이는 검증은 넣지 말고 답변에서 이유와 함께 제안한다.
 
 ## 검증: Missing related row
 

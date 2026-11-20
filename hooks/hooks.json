@@ -1,0 +1,29 @@
+{
+  "description": "ACE sql: SP를 고치고 실행 검증도 미실행 사유도 없으면 끝내기 전에 한 번 막는다. ACE_HOOK=off로 끈다.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["-B", "${CLAUDE_PLUGIN_ROOT}/hooks/ace_stop_check.py"],
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": ["-B", "${CLAUDE_PLUGIN_ROOT}/hooks/ace_stop_check.py"],
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

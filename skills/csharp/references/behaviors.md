@@ -45,7 +45,7 @@
 | 버튼 동작(승인, 완료, 복사 등) | `btn.Click` (`u_ButtonControl`) | `m_Editmode` 확인 → `ShowMessageYesNO` → 저장 호출 → `ShowMessage` → `CallCommand(BizCommand.Search)` |
 | 탭 전환 | `tab.SelectedPageChanged` | 탭에 맞게 `CallCommand(BizCommand.Search)`(28%), `Usr_ControlsProtect`(24%) |
 
-- 입력 컨트롤의 값 변경 핸들러는 **조회로 값이 채워질 때도 불린다.** 그래서 첫 줄에서 `m_Editmode == DataEditMode.Default`이면 return한다. 이 확인을 빼면 조회할 때마다 계산이 돌아 값이 덮인다.
+- 입력 컨트롤의 값 변경 핸들러는 **조회로 값이 채워질 때도 불린다.** 그래서 첫 줄에서 `m_Editmode == DataEditMode.Default`이면 return한다. 이 확인을 빼면 조회할 때마다 계산이 돌아 값이 덮인다. 그리드의 `CellValueChanged`와 명령 핸들러도 첫 줄에서 `m_Editmode`를 확인한다.
 
 ## 조회·저장 메서드
 
@@ -55,7 +55,7 @@
 | `CallSaveProcedure` | `DataUtil.DataTableToXml`(95%), `dbClient.ExecSPTrn`(78%), `m_Editmode.ToString().ToUpper()`, `userInfo.Orgdiv`(97%), `userInfo.UserId`(100%), `devFnc.GetUserPCData()`(76%), 예외는 `ShowMessageError(ee.Message)`(76%) |
 
 - `@USERIP`에는 `devFnc.GetUserPCData()`를 넘긴다(76%). `userInfo.UserIP`를 쓰는 화면(19%)도 있으므로 기존 화면을 고칠 때는 그 화면의 방식을 유지한다.
-- 저장은 `ExecSPTrn`이 기본이다. `ExecSP`(21%)는 트랜잭션이 없으므로 새 저장에 쓰지 않는다.
+- 저장 호출은 `ExecSPTrn`이 78%, 트랜잭션이 없는 `ExecSP`가 21%다. 어느 쪽을 쓰는지는 [screen-skeleton.md](screen-skeleton.md#이-골격에서-지킬-점).
 
 ## 공통 메서드 사용 빈도
 

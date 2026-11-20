@@ -74,7 +74,7 @@ WHERE A.COMPANY_ID = @COMPANY_ID
 
 ## EXISTS → JOIN
 
-WHERE의 EXISTS·IN 서브쿼리는 JOIN으로 바꾼다. 수정·검토 요청이면 기존 코드에 있던 것도 바꾼다. “정리”만 요청한 경우는 의미를 바꾸지 않으므로 그대로 두고 제안한다.
+WHERE의 EXISTS·IN 서브쿼리는 JOIN으로 바꾼다. 수정·검토 요청이면 기존 코드에 있던 것도 바꾼다. “정리”만 요청한 경우는 의미를 바꾸지 않으므로 그대로 두고 제안한다. SAVE의 `IF EXISTS` 검증은 WHERE 서브쿼리가 아니므로 유지한다([save.md](save.md#검증-missing-related-row)).
 
 1. 서브쿼리의 조건 중 바깥 행과 비교하는 등호(`T.KEY = A.KEY`)가 연결 키다. 나머지 조건은 파생 안의 WHERE로 옮긴다.
 2. 파생을 연결 키로 GROUP BY하면 키마다 한 행이므로 INNER JOIN해도 바깥 행이 늘지 않는다. 이것이 EXISTS와 같은 결과를 만드는 근거다.

@@ -314,7 +314,8 @@ END;
 - XML 경로 `/ROOT/<이름>`의 `<이름>`은 C#에서 `dt.TableName`에 넣은 값이다. 행 상태는 `GBN` 속성(NEW·MOD·DEL)으로 온다.
 - 테이블 변수와 `OPENXML … WITH`의 열 목록·타입은 같은 순서로 맞춘다. 타입은 실제 테이블 스키마에서 가져온다. `INSERT … SELECT *`로 줄이지 않는다.
 - 변수는 `@DOC_ID`(XML 핸들), `@DOCDT`·`@NEWSEQ`(채번 EXEC 인자), `@DOCNUM`(여러 문장에서 쓰는 생성 번호)만 둔다. 그 밖의 헤더 값은 `@TMP_HEADER`를 JOIN해서 읽는다.
-- 트랜잭션 코드는 없다. C#의 `ExecSPTrn`이 맡는다.
+- 트랜잭션 코드는 없다. 호출부가 `ExecSPTrn`일 때의 형태다. 호출부가 `ExecSP`이면 [save.md](save.md#트랜잭션)를 따른다.
+- `@XMLDETAIL`처럼 화면이 `null`로 넘길 수 있는 인자는 `= NULL` 기본값을 둔다. [save.md](save.md#화면이-null로-넘길-수-있는-인자)
 - 프로젝트 공통 함수(`F_CHECK_CLOSE`, `RETURN_KEYCODE`, 채번 SP)의 인자와 쓰는 법은 [kone.md](kone.md)에 있다.
 
 ## CASE

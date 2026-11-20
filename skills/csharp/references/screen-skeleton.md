@@ -2,6 +2,8 @@
 
 실제 근호 작성 화면(FrmDevBase 상속)에서 뽑은 공통 골격이다. 프로그램·컨트롤·테이블 이름은 가상이다. 실제 이름과 흐름은 비교 프로그램과 대상 화면에서 가져온다.
 
+`DataEditMode`의 멤버 이름은 프로젝트마다 다르다. 아래 코드의 `Default`·`Update`·`Delete`는 그대로 옮기지 말고 대상 프로젝트 `FrmDevBase.cs`의 enum을 쓴다(C_KONE120은 `DEFAULT`·`EDIT`·`NEW`·`DELETE`, [kone120.md](kone120.md)). `m_Editmode.ToString()`이 SP의 `@WORKTYPE`이 되므로 이름이 곧 계약이다.
+
 멤버 순서: `enum SelectType` → 생성자(이벤트 구독) → Load → 명령 핸들러(Search, New, Edit, Clear, Save, Delete) → 그리드 이벤트 → `CallSelectProcedure` → `CallSaveProcedure`.
 
 ```csharp
@@ -246,12 +248,11 @@ namespace Konesystem.XX01
 
 ## 이 골격에서 지킬 점
 
-- 이벤트 구독은 생성자에서 `InitializeComponent()` 다음에 이름 있는 핸들러로 한 번씩 한다.
-- 명령 핸들러 첫 줄은 `m_Editmode` 확인이다. 조건이 한 줄이어도 **항상 중괄호**를 쓴다.
+- 이벤트 구독 위치는 [control-blocks.md](control-blocks.md#원칙), 명령 핸들러 첫 줄의 `m_Editmode` 확인은 [behaviors.md](behaviors.md#툴바-명령-폼-이벤트), 중괄호는 [coding-style.md](coding-style.md#syntax-and-naming)를 따른다.
 - 조회는 `CallSelectProcedure(SelectType)` 하나로 모은다. `enum SelectType` 멤버 이름이 SP의 `@WORKTYPE` 값이다.
 - 저장은 `CallSaveProcedure()` 하나로 모으고 `bool`을 돌려준다. 성공 메시지와 재조회는 호출한 명령 핸들러의 성공 경로에 둔다.
 - `dt.TableName`이 SAVE SP의 XML 경로(`/ROOT/<TableName>`)가 된다. 저장할 행은 `DataUtil.DataTableToXml(dt, DataRowState…)`의 행 상태로 고른다. 원본 값을 열마다 직접 비교하지 않는다.
-- 저장은 `dbClient.ExecSPTrn`으로 부른다. 트랜잭션 시작·커밋·롤백은 이 메서드가 한다. 화면에서 따로 트랜잭션을 만들지 않는다.
+- 저장은 `dbClient.ExecSPTrn`으로 부른다. 트랜잭션 시작·커밋·롤백은 이 메서드가 한다. 화면에서 따로 트랜잭션을 만들지 않고, SP에도 트랜잭션 코드를 쓰지 않는다. `ExecSP`는 트랜잭션이 없으므로 새 저장에 쓰지 않는다. 기존 화면이 `ExecSP`로 저장하면 SP의 트랜잭션이 유일한 보호이므로 빼지 않는다. 호출을 `ExecSPTrn`으로 바꾸자고 제안만 하고, 사용자가 동의하기 전에는 화면도 SP의 트랜잭션도 바꾸지 않는다(sql 스킬 `references/save.md`의 트랜잭션).
 - 삭제는 `gvwList.DeleteSelectedRows()`로 행을 Deleted 상태로 만든 뒤 저장을 부른다. 선택 행을 직접 루프로 지우지 않는다.
 - 날짜 초기화는 `ymdXXX.SetToDay(n)`을 쓴다.
 - DbParameter는 한 줄에 하나, 선행 쉼표, SP 인자 순서대로 쓴다. 닫는 괄호 `);`는 따로 한 줄이다.
@@ -370,7 +371,7 @@ private bool CallSaveProcedure()
 }
 ```
 
-- 헤더는 조회한 한 행을 `devFnc.DataRowToPanel`로 패널에 뿌리고, 저장할 때 `devFnc.MasterToDataTable`로 패널 값을 다시 한 행짜리 DataTable로 만든다. 스키마는 조회한 헤더 표를 `Clone()`해서 쓴다. 컨트롤의 `BindingField`가 열 이름과 같아야 값이 들어간다.
+- 헤더는 조회한 한 행을 `devFnc.DataRowToPanel`로 패널에 뿌리고, 저장할 때 `devFnc.MasterToDataTable`로 패널 값을 다시 한 행짜리 DataTable로 만든다. 스키마는 조회한 헤더 표를 쓴다(C_KONE120의 `MasterToDataTable`은 안에서 `Clone()`하므로 원본 표를 그대로 넘겨도 된다). 컨트롤의 `BindingField`가 열 이름과 같아야 값이 들어가고, 바인딩된 컨트롤이 없는 열은 비어 있으므로 SP가 읽으면 코드로 대입한다.
 - 상세는 그리드의 DataTable을 그대로 XML로 만든다. 추가·수정·삭제 행을 한 번에 보내고 SP가 `GBN`으로 나눠 처리한다.
 - 새 상세 행은 `NewRow()` → 필드 대입 → `Rows.Add()`다. 순번(`SEQ`)은 0으로 두고 SP가 매긴다. 헤더 값은 상세가 실제로 필요한 키만 넣는다.
 - 헤더 XML과 상세 XML의 `TableName`이 SP의 두 XML 경로와 각각 같아야 한다.

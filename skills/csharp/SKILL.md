@@ -31,18 +31,19 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 
 ## 항상 지키는 규칙
 
-- 요청한 멤버만 바꾼다. 기존 속성·이벤트·사용자 편집(폭, 순서, Font, Visible)은 보존한다.
-- 라벨·한 줄 입력 높이는 같은 화면의 같은 역할 컨트롤과 맞춘다. 폰트·정렬·버튼은 실제 초기화 값을 유지한다.
-- 그리드 새로 만들 때는 [grid.md](references/grid.md) 기본값만 쓴다. 셀 TextOptions, DisplayFormat, EditMask, 뷰 전체 Editable/ReadOnly를 임의로 추가하지 않는다.
-- **프로젝트에 UserControl(`u_…`)이 있으면 그것을 쓰고, 없을 때만 DevExpress 표준 컨트롤을 쓴다.** WinForms 기본 컨트롤(`TextBox`, `Label`, `Button`, `DataGridView`)은 쓰지 않는다. 용도별 컨트롤은 [control-blocks.md](references/control-blocks.md#컨트롤-선택)에 있다.
-- 사용자 컨트롤의 기본값을 덮어쓰지 않는다. 필요한 속성만 바꾼다.
-- if·else·반복문은 한 줄이어도 **항상 중괄호**를 쓴다. 기존 화면에 중괄호 없는 한 줄 if가 있어도 새로 쓰는 코드는 중괄호를 쓴다.
-- 저장은 `dbClient.ExecSPTrn`으로 부른다. 트랜잭션은 이 메서드가 맡으므로 화면이나 SP에 따로 만들지 않는다.
-- **화면 구성은 Designer에, 이벤트 연결은 비하인드 코드에 둔다.** 컨트롤 생성·배치·속성은 `InitializeComponent()`에, 이벤트 구독(`+=`)은 생성자에서 `InitializeComponent()` 다음에 이름 있는 핸들러로 한 번씩 쓴다. Designer에 이벤트 구독을 새로 쓰지 않는다.
-- 새 동작은 먼저 [behaviors.md](references/behaviors.md)에서 같은 동작의 이벤트와 공통 메서드를 찾아 쓴다. 새 헬퍼를 만들거나 `MessageBox.Show`, 직접 만든 DB 연결을 쓰지 않는다.
-- 값 변경 핸들러(`EditValueChanged`, `CellValueChanged`)와 명령 핸들러는 첫 줄에서 `m_Editmode`를 확인한다.
+한 줄에 규칙 하나다. 전체 내용·예시·예외는 링크한 문서가 규칙의 자리다. 링크가 없는 줄은 이 목록이 자리다.
+
+- 요청한 멤버만 바꾸고, 기존 속성·이벤트·사용자 편집(폭, 순서, Font, Visible)은 보존한다. [coding-style.md](references/coding-style.md#priority-of-requirements)
+- 라벨·한 줄 입력 높이는 같은 화면의 같은 역할 컨트롤과 맞추고, 폰트·정렬·버튼은 실제 초기화 값을 유지한다. [controls.md](references/controls.md)
+- 새 그리드는 HTML 생성 기본값만 쓴다. 셀 TextOptions, DisplayFormat, EditMask, 뷰 전체 Editable/ReadOnly, 열 `Font`를 임의로 추가하지 않는다. [grid.md](references/grid.md)
+- **프로젝트에 UserControl(`u_…`)이 있으면 그것을 쓰고, 없을 때만 DevExpress 표준 컨트롤을 쓴다.** WinForms 기본 컨트롤은 쓰지 않고, 사용자 컨트롤의 기본값을 덮어쓰지 않는다. [control-blocks.md](references/control-blocks.md#컨트롤-선택)
+- if·else·반복문은 한 줄이어도 **항상 중괄호**를 쓴다. [coding-style.md](references/coding-style.md#syntax-and-naming)
+- 새 저장은 `dbClient.ExecSPTrn`으로 부르고 화면에 트랜잭션을 만들지 않는다. 기존 화면이 `ExecSP`면 SP의 트랜잭션을 빼지 않는다. [screen-skeleton.md](references/screen-skeleton.md#이-골격에서-지킬-점)
+- **화면 구성은 Designer에, 이벤트 연결은 비하인드 코드 생성자에 둔다.** Designer에 이벤트 구독을 새로 쓰지 않는다. [control-blocks.md](references/control-blocks.md#원칙)
+- 새 동작은 먼저 behaviors.md에서 같은 동작의 이벤트와 공통 메서드를 찾아 쓴다. 새 헬퍼, `MessageBox.Show`, 직접 만든 DB 연결을 쓰지 않는다. [behaviors.md](references/behaviors.md#쓰지-않는-것)
+- 값 변경 핸들러(`EditValueChanged`, `CellValueChanged`)와 명령 핸들러는 첫 줄에서 `m_Editmode`를 확인한다. [behaviors.md](references/behaviors.md#입력-컨트롤)
+- 화면과 SP가 같이 바뀌면 sql 스킬도 따르고, SP 인자(`null` 인자의 기본값 포함)·XML TableName·행 상태·결과표 순서·바인딩 FieldName을 양쪽에서 하나씩 대조한다. [verify.md](references/verify.md#대조표)
 - LINQ·중간 테이블·빌드는 기본적으로 쓰지 않는다. 없으면 구현이 어렵거나 성능 차이가 극단적일 때만 쓰고 이유를 말한다.
-- 화면과 SP가 같이 바뀌면 sql 스킬도 따르고, SP 인자·XML TableName·행 상태·결과표 순서·바인딩 FieldName을 양쪽에서 하나씩 대조한다.
 
 ## 작업 파일과 정리
 
@@ -60,7 +61,7 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 1. **원본 대조**: 원본 .cs·Designer와 최종본을 비교해 요청하지 않은 속성 추가·변경·삭제가 없는지 본다.
 2. **비교 프로그램 대조**: 같은 역할의 비교 화면과 작성 방식이 같은지 본다.
 3. **규칙 대조**: 위 규칙과 교정 기록(플러그인·로컬) 항목을 하나씩 대조한다.
-4. **계약 대조표**: SP를 부르는 코드를 만들거나 고쳤으면 화면 호출 ↔ SP 사이에서 저장 호출(`ExecSPTrn`/`ExecSP`), SP 인자 이름·순서, `@WORKTYPE` 값 ↔ SP 분기, XML TableName ↔ SP의 XML 경로, 행 상태 ↔ SP의 `GBN` 분기, 결과표 순서 ↔ `ds.Tables[n]`, 그리드 `FieldName`·`BindingField` ↔ 결과 열 이름을 **파일 경로와 줄 번호를 근거로** 대조해 표로 넣는다. 형태는 [verify.md](references/verify.md).
+4. **계약 대조표**: SP를 부르는 코드를 만들거나 고쳤으면 화면 호출 ↔ SP 계약(저장 호출, 인자와 null 인자의 기본값, `@WORKTYPE`, XML TableName·행 상태·열, 결과표 순서, `FieldName`·`BindingField`·코드의 `dr["…"]` ↔ 결과 열)을 **파일 경로와 줄 번호를 근거로** 대조해 표로 넣는다. 바꾼 부분에 해당하는 행만 채운다. 범위·찾는 순서·판단 기준은 [verify.md](references/verify.md).
 5. **시나리오 표**: 바꾼 조회·저장·화면 상태 전환마다 채운다.
 
 | 구분 | 확인할 사례 | 근거 |
@@ -74,6 +75,4 @@ description: WinForms/DevExpress 화면, Designer, 그리드, 사용자 컨트�
 
 ## 교정을 받으면 (Compound)
 
-사용자가 결과를 교정했거나(틀렸다고 지적, 같은 말을 다시 함, 방식을 바꾸라고 함) 계약 대조·실행에서 나온 어긋남의 원인이 규칙에 없거나 틀렸으면, 고친 뒤 **묻지 않고** 로컬 기록 `~/.claude/ace/lessons/csharp.md`에 항목을 추가하고 답변에 `교정 기록에 추가: <제목>` 한 줄로 알린다. 같은 내용이 이미 있으면 그 항목을 고친다. 이번 작업에만 해당하는 요구와 내 추측은 적지 않는다.
-
-저장소(lessons.md·reference)로 옮기는 승격은 사용자가 "교정 기록 정리해줘 / ACE에 반영해줘"라고 할 때만 한다. 로컬 항목이 10개를 넘으면 정리를 제안만 한다. 형식과 절차는 [compound.md](references/compound.md).
+사용자가 결과를 교정했거나 계약 대조·실행에서 나온 어긋남의 원인이 규칙에 없거나 틀렸으면, 고친 뒤 **묻지 않고** 로컬 기록 `~/.claude/ace/lessons/csharp.md`에 적고 답변에 `교정 기록에 추가: <제목>` 한 줄로 알린다. 사용자가 이 대화에서 파일을 만들거나 고치지 말라고 했으면 쓰지 않고 답변에만 보인다. 언제 적는지, 항목 형식, 저장소로 옮기는 승격(사용자가 요청할 때만)은 [compound.md](references/compound.md)가 자리다.
