@@ -113,20 +113,20 @@ END
 
 ## 이름 조회 함수 (F_FIND_USERNM, F_BA011T_FIND_SUBNM)
 
-행마다 실행되는 스칼라 함수다. 새로 쓰는 조회에서는 함수 대신 JOIN으로 이름을 가져온다.
+표시용 이름 하나만 가져올 때는 **함수를 쓴다.** 이름마다 JOIN을 붙이면 같은 테이블이 여러 번 들어가 쿼리가 길어진다.
 
 ```sql
 SELECT A.DOCNUM
      , A.REGEMPNO
-     , D.USERNM AS REGEMPNM
-     , B1.SUBNM AS PROCNM
+     , DBO.F_FIND_USERNM(A.REGEMPNO) AS REGEMPNM
+     , A.MODEMPNO
+     , DBO.F_FIND_USERNM(A.MODEMPNO) AS MODEMPNM
+     , DBO.F_BA011T_FIND_SUBNM('PR001', A.PROCCD, '%') AS PROCNM
 FROM DOC_HEADER A
-        LEFT OUTER JOIN BA095T D
-                     ON A.ORGDIV = D.ORGDIV
-                     AND A.REGEMPNO = D.USERID
-        LEFT OUTER JOIN BA011T B1
-                     ON B1.MAINCD = 'PR001'
-                     AND A.PROCCD = B1.SUBCD
+WHERE A.ORGDIV = @ORGDIV
 ```
 
-- 기존 SP에 있는 함수 호출은 요청 없이 JOIN으로 바꾸지 않는다. 바꿀 때는 함수 정의를 읽고 조건 차이(사업장 조건 유무, 사용 여부 조건, 중복 행)를 확인한다.
+- 이 DB들은 SQL Server 2019(호환성 수준 150)이고 세 함수 모두 인라인 대상이다(`SYS.SQL_MODULES.IS_INLINEABLE = 1`). 옵티마이저가 함수를 쿼리 안으로 풀어 넣으므로 SELECT 목록에서 쓰는 한 JOIN과 성능 차이가 크지 않다.
+- JOIN으로 쓰는 경우는 따로 있다: 그 테이블의 **다른 열도 함께** 필요할 때, 이름으로 **WHERE 검색·GROUP BY·ORDER BY**를 할 때, 사업장(`ORGDIV`)까지 맞춰야 할 때다. `F_FIND_USERNM`은 사용자 ID만으로 찾고 사업장 조건이 없다.
+- 기존 SP에 있는 함수 호출이나 JOIN은 요청 없이 서로 바꾸지 않는다.
+- 다른 서버에서는 버전과 `IS_INLINEABLE`을 먼저 확인한다. 2017 이하이거나 인라인이 안 되면 행마다 함수가 실행되어 건수가 많은 조회에서 느려진다.
