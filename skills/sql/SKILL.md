@@ -16,7 +16,9 @@ description: SQL Server 쿼리·프로시저(SP)를 사용자 방식으로 작�
 | --- | --- | --- |
 | 정렬·정리만 | 의미를 바꾸지 않고 서식만 고친다. 로직 규칙 위반은 고치지 말고 위치만 보고한다. | [style.md](references/style.md) |
 | SELECT 작성·수정 | 결과 한 행의 단위, 포함·제외 조건, 표시용 JOIN과 필수 JOIN을 먼저 정한다. | [select.md](references/select.md), [style.md](references/style.md) |
-| SP를 새로 만들기 | 인자 선언, XML 파싱, 분기 골격을 그대로 따른다. | [procedure.md](references/procedure.md) |
+| SP를 새로 만들기 | 인자 선언, XML 파싱, 헤더+상세 저장 골격을 그대로 따른다. | [procedure.md](references/procedure.md) |
+| BOM 전개, 월별 피벗 등 복잡한 조회 | 결과 한 행의 단위를 먼저 적고, 파생마다 그 단위를 지키는지 확인한다. | [complex-select.md](references/complex-select.md) |
+| 마감 검증, 채번, 키 분해 등 공통 함수 | 기존 공통 개체를 쓴다. 새로 만들지 않는다. | [kone.md](references/kone.md) |
 | SAVE 작성·수정 | 호출 모드(WORKTYPE), 선택 키, XML 행 상태(NEW/MOD/DEL)를 호출부와 맞춘다. | [save.md](references/save.md), [style.md](references/style.md) |
 
 3. 기존 SP를 고치면 **원본 전체**와 **실제 호출부(C# 또는 PB)**를 먼저 읽는다. 새 SP는 사용자에게 헤더에 쓸 작성자 이름과, 작성 방식을 참고할 기존 SP(같은 역할의 SELECT 또는 SAVE)를 확인하고 그 SP를 처음부터 끝까지 읽는다.

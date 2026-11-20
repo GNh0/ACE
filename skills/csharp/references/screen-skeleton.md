@@ -256,3 +256,142 @@ namespace Konesystem.XX01
 - 날짜 초기화는 `ymdXXX.SetToDay(n)`을 쓴다.
 - DbParameter는 한 줄에 하나, 선행 쉼표, SP 인자 순서대로 쓴다. 닫는 괄호 `);`는 따로 한 줄이다.
 - 예외는 `catch (Exception ee)`에서 `ShowMessageError(ee.Message)`로 보여준다.
+
+## 헤더 패널 + 상세 그리드 화면
+
+위 골격은 목록 그리드 하나를 저장하는 화면이다. 헤더(패널의 입력 컨트롤)와 상세(그리드)를 함께 저장하는 화면은 조회·저장·행 추가가 아래처럼 달라진다.
+
+```csharp
+DataTable dtMaster = null;
+string strKeycode = string.Empty;
+
+private void XX000100_SearchCommand(object sender, SearchCommandEventArgs e)
+{
+    m_Editmode = DataEditMode.Default;
+    devFnc.Usr_ControlsProtect(pnMaster, true);
+    devFnc.Usr_ControlsProtect(grpDetail, true);
+    devFnc.InitControl(grpMaster);
+    dtMaster = null;
+
+    DataSet ds = CallSelectProcedure(SelectType.HEADER, strKeycode);
+    if (ds == null)
+    {
+        return;
+    }
+
+    dtMaster = ds.Tables[0];
+    if (dtMaster.Rows.Count == 0)
+    {
+        return;
+    }
+
+    devFnc.DataRowToPanel(dtMaster.Rows[0], pnMaster);
+
+    ds = CallSelectProcedure(SelectType.DETAIL, strKeycode);
+    if (ds == null)
+    {
+        return;
+    }
+
+    grdDetail.DataSource = ds.Tables[0];
+    gvwDetail.BestFitColumns();
+}
+
+private void BtnADD_Click(object sender, EventArgs e)
+{
+    if (m_Editmode != DataEditMode.Update)
+    {
+        return;
+    }
+
+    DataTable dtDetail = grdDetail.DataSource as DataTable;
+    if (dtDetail == null)
+    {
+        return;
+    }
+
+    DataRow drNew = dtDetail.NewRow();
+    drNew["DOCNUM"] = strKeycode;
+    drNew["SEQ"] = 0;
+    drNew["ITEMCD"] = string.Empty;
+    drNew["QTY"] = 1;
+    dtDetail.Rows.Add(drNew);
+}
+
+private void BtnDEL_Click(object sender, EventArgs e)
+{
+    if (m_Editmode != DataEditMode.Update)
+    {
+        return;
+    }
+
+    gvwDetail.DeleteSelectedRows();
+}
+
+private bool CallSaveProcedure()
+{
+    try
+    {
+        if (m_Editmode == DataEditMode.Default)
+        {
+            return false;
+        }
+
+        DataTable dtDetail = grdDetail.DataSource as DataTable;
+        if (dtDetail == null)
+        {
+            return false;
+        }
+
+        dtDetail.TableName = "DOC_DETAIL";
+        string strXmlDetail = DataUtil.DataTableToXml(dtDetail, DataRowState.Added | DataRowState.Modified | DataRowState.Deleted);
+
+        DataTable dtHeader = devFnc.MasterToDataTable(DevFunction.MasterDataRowState.New, dtMaster.Clone(), grpMaster);
+        dtHeader.TableName = "DOC_HEADER";
+        string strXml = DataUtil.DataTableToXml(dtHeader, DataRowState.Added | DataRowState.Modified | DataRowState.Deleted);
+
+        dbClient.ExecSPTrn("sp_XX000100_SAVE"
+                , new DbParameter("@WORKTYPE", m_Editmode.ToString().ToUpper())
+                , new DbParameter("@ORGDIV", userInfo.Orgdiv)
+                , new DbParameter("@USERID", userInfo.UserId)
+                , new DbParameter("@USERIP", userInfo.UserIP)
+                , new DbParameter("@XML", strXml)
+                , new DbParameter("@XMLDETAIL", strXmlDetail)
+                );
+
+        m_Editmode = DataEditMode.Default;
+        return true;
+    }
+    catch (Exception ee)
+    {
+        ShowExcetion(ee);
+        return false;
+    }
+}
+```
+
+- 헤더는 조회한 한 행을 `devFnc.DataRowToPanel`로 패널에 뿌리고, 저장할 때 `devFnc.MasterToDataTable`로 패널 값을 다시 한 행짜리 DataTable로 만든다. 스키마는 조회한 헤더 표를 `Clone()`해서 쓴다. 컨트롤의 `BindingField`가 열 이름과 같아야 값이 들어간다.
+- 상세는 그리드의 DataTable을 그대로 XML로 만든다. 추가·수정·삭제 행을 한 번에 보내고 SP가 `GBN`으로 나눠 처리한다.
+- 새 상세 행은 `NewRow()` → 필드 대입 → `Rows.Add()`다. 순번(`SEQ`)은 0으로 두고 SP가 매긴다. 헤더 값은 상세가 실제로 필요한 키만 넣는다.
+- 헤더 XML과 상세 XML의 `TableName`이 SP의 두 XML 경로와 각각 같아야 한다.
+
+## 화면에서 쓰는 공통 함수
+
+새로 만들기 전에 아래에 있는지 먼저 본다. 실제 인자와 동작은 대상 프로젝트의 `KoneLib` 소스에서 확인한다.
+
+| 하는 일 | 쓰는 것 |
+| --- | --- |
+| 컨트롤·그리드 편집 잠금/해제 | `devFnc.Usr_ControlsProtect(컨트롤, true/false)` |
+| 그룹 안 입력 컨트롤 비우기 | `devFnc.InitControl(그룹)` |
+| 한 행 → 패널 표시 | `devFnc.DataRowToPanel(행, 패널)` |
+| 패널 → 한 행짜리 DataTable | `devFnc.MasterToDataTable(상태, 스키마, 그룹)` |
+| DataTable → 저장 XML | `DataUtil.DataTableToXml(표, 행 상태)` |
+| 공통코드 콤보 바인딩 | `syCode.BindingCode(코드, 컨트롤)`, 사업장별은 `syCode.BindingorgdivCode(코드, 사업장, 컨트롤)` |
+| 날짜 초기화, SP용 문자열 | `ymdXXX.SetToDay(n)`, `ymdXXX.YYYYMMDD()` |
+| 조회 / 저장 | `dbClient.GetDataSetFromSP(…)` / `dbClient.ExecSPTrn(…)` |
+| 툴바 명령 다시 실행(저장 후 재조회 등) | `CallCommand(BizCommand.Search)` |
+| 메시지 | `ShowMessage`, `ShowMessageWaring`, `ShowMessageError`, `ShowMessageYesNO`, `ShowExcetion(ee)` |
+| 로그인 정보 | `userInfo.Orgdiv`, `userInfo.UserId`, `userInfo.UserIP` |
+| 품목 등 선택 팝업 | 팝업 폼에 `userInfo`·`dbClient`를 넘기고 `ShowDialog() == DialogResult.OK`이면 선택 행(`drItem`)에서 값을 가져온다 |
+
+메서드 이름의 오타(`ShowMessageWaring`, `ShowExcetion`)는 실제 이름이므로 그대로 쓴다.
