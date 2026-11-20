@@ -56,4 +56,4 @@
 
 ## 공통코드 이름은 JOIN, 사용자 이름은 함수 (2026-11-20)
 - 실수: 공통코드 이름까지 `F_BA011T_FIND_SUBNM` 함수로 가져오게 했다.
-- 규칙: 공통코드 이름은 `BA011T`를 LEFT OUTER JOIN한다. 사용자 이름은 `F_FIND_USERNM` 함수를 쓴다. [kone.md](kone.md)
+- 규칙: 공통코드 이름은 `BA011T`를 LEFT OUTER JOIN한다. 사용자 이름은 가장 바깥 SELECT에서만 `F_FIND_USERNM` 함수를 쓰고, 대량 집계·수십만 건 조회에서는 JOIN한다(실측: 58만 건에서 함수 1.1초, JOIN 0.08초). [kone.md](kone.md)
