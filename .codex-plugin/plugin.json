@@ -1,0 +1,32 @@
+{
+  "name": "ace",
+  "version": "6.4.0",
+  "description": "Layered skills in the user's own style: work method, SQL Server procedures, WinForms/DevExpress screens, PowerBuilder migration and the in-house framework/domain/project layer, with recorded lessons and scenario checks.",
+  "author": {
+    "name": "GNho Labs",
+    "url": "https://github.com/GNh0"
+  },
+  "repository": "https://github.com/GNh0/ACE",
+  "keywords": ["sql", "csharp", "winforms", "devexpress", "powerbuilder", "erp"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "ACE",
+    "shortDescription": "SQL Server, WinForms/DevExpress and PowerBuilder work in the user's style.",
+    "longDescription": "Five layered skills (work, sql, csharp, pb, erp) plus helper skills (review, style, comply, dispatch: hand pieces to Claude Code, Codex and Antigravity by remaining usage), per-skill lessons, standard-library checkers and scripts (check_sql, check_designer, make_compare_test, map_project, mine_style) and hooks: live-DB guard, SP-apply gate, correction and connection hints, work-state save/restore, and a Stop check. The hooks need Python and host trust.",
+    "developerName": "GNho Labs",
+    "category": "Productivity",
+    "capabilities": [
+      "SQL Server procedures",
+      "WinForms/DevExpress screens",
+      "PowerBuilder migration",
+      "in-house framework"
+    ],
+    "defaultPrompt": [
+      "이 SQL을 내 방식으로 정리해줘.",
+      "이 SAVE SP를 수정하고 롤백 테스트로 검증해줘.",
+      "이 화면 그리드에 컬럼을 추가해줘."
+    ],
+    "brandColor": "#111111"
+  },
+  "hooks": "./hooks/codex-hooks.json"
+}

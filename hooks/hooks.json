@@ -1,0 +1,141 @@
+{
+  "description": "ACE for Claude Code: blocks writes to live DBs listed in ~/.claude/ace/config.json unless the user's latest message asks for it; stops the first unchecked CREATE/ALTER of a real SP in a turn; reminds to record lessons on corrections; hints to connect when an MSSQL tool has no connection; saves work state before compaction and restores it at session start; blocks once before stopping when an SP has no execution evidence or a written file fails its checker. ACE_HOOK=off turns them off.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__.*mssql.*|Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_db_guard.py",
+              "--host",
+              "claude"
+            ],
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_apply_gate.py",
+              "--host",
+              "claude"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__.*mssql.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_hints.py",
+              "PostToolUse",
+              "--host",
+              "claude"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_hints.py",
+              "UserPromptSubmit",
+              "--host",
+              "claude"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_state.py",
+              "PreCompact",
+              "--host",
+              "claude"
+            ],
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_state.py",
+              "SessionStart",
+              "--host",
+              "claude"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_stop_check.py",
+              "--host",
+              "claude"
+            ],
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/hooks/ace_stop_check.py",
+              "--host",
+              "claude"
+            ],
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

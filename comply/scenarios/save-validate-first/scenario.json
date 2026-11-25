@@ -1,0 +1,66 @@
+{
+  "id": "save-validate-first",
+  "lesson": "sql lessons: Validations before writes; CASE always has ELSE; master tables LEFT OUTER JOIN",
+  "skills": [
+    "sql",
+    "erp"
+  ],
+  "task": "sp_TEST100_SAVE.sql 저장 SP인데 NEW 쪽이 좀 이상하게 짜여 있어. 우리 방식대로 고쳐서 같은 파일에 저장해줘. DB 연결은 없으니 파일만 고치면 돼. 호출부는 SaveTrn이야.",
+  "caller": "SaveTrn",
+  "checks": [
+    {
+      "id": "changed",
+      "rule": "the file was actually rewritten",
+      "type": "file_changed",
+      "file": "sp_TEST100_SAVE.sql"
+    },
+    {
+      "id": "validate-first",
+      "rule": "IF EXISTS checks come before the first INSERT/UPDATE/DELETE",
+      "type": "func",
+      "name": "validations_first",
+      "file": "sp_TEST100_SAVE.sql"
+    },
+    {
+      "id": "count-this-save",
+      "rule": "the quantity check counts this save's staging rows (@TMP) before writing",
+      "type": "func",
+      "name": "precheck_uses_staging",
+      "file": "sp_TEST100_SAVE.sql"
+    },
+    {
+      "id": "case-else",
+      "rule": "every CASE has ELSE",
+      "type": "sql_check",
+      "file": "sp_TEST100_SAVE.sql",
+      "item": "CASE에는 ELSE"
+    },
+    {
+      "id": "master-left",
+      "rule": "MS020T is LEFT OUTER JOIN",
+      "type": "sql_check",
+      "file": "sp_TEST100_SAVE.sql",
+      "item": "마스터 테이블"
+    },
+    {
+      "id": "no-having",
+      "rule": "no HAVING filter; aggregate comparison in an outer WHERE",
+      "type": "regex_absent",
+      "file": "sp_TEST100_SAVE.sql",
+      "pattern": "\\bHAVING\\b"
+    },
+    {
+      "id": "check-sql",
+      "rule": "check_sql has no FAIL",
+      "type": "sql_check",
+      "file": "sp_TEST100_SAVE.sql",
+      "item": "*"
+    },
+    {
+      "id": "used-skill",
+      "rule": "the ACE sql skill was loaded",
+      "type": "trace",
+      "pattern": "ace:sql|skills[\\/]+sql[\\/]"
+    }
+  ]
+}

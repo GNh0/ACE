@@ -1,0 +1,73 @@
+{
+  "id": "seq-in-insert",
+  "lesson": "erp keys: detail sequence = MAX-derived LEFT OUTER JOIN + ROW_NUMBER inside the INSERT, never a staging UPDATE or loop",
+  "skills": [
+    "sql",
+    "erp"
+  ],
+  "task": "sp_TEST300_SAVE.sql 에서 상세 순번(PURSEQ2) 매기는 부분이 마음에 안 들어. 정리해서 같은 파일에 저장해줘. 호출부는 SaveTrn이고 DB 연결은 없어.",
+  "caller": "SaveTrn",
+  "checks": [
+    {
+      "id": "changed",
+      "rule": "the file was actually rewritten",
+      "type": "file_changed",
+      "file": "sp_TEST300_SAVE.sql"
+    },
+    {
+      "id": "no-staging-update",
+      "rule": "no UPDATE of the staging table to set the sequence",
+      "type": "regex_absent",
+      "file": "sp_TEST300_SAVE.sql",
+      "pattern": "UPDATE\\s+@TMP\\w*\\s+SET\\s+\\w*SEQ"
+    },
+    {
+      "id": "no-loop",
+      "rule": "no WHILE loop",
+      "type": "sql_check",
+      "file": "sp_TEST300_SAVE.sql",
+      "item": "루프"
+    },
+    {
+      "id": "no-max-var",
+      "rule": "no MAX sequence variable",
+      "type": "sql_check",
+      "file": "sp_TEST300_SAVE.sql",
+      "item": "MAX 순번 변수"
+    },
+    {
+      "id": "row-number",
+      "rule": "ROW_NUMBER() OVER inside the INSERT ... SELECT",
+      "type": "regex_present",
+      "file": "sp_TEST300_SAVE.sql",
+      "pattern": "INSERT\\s+INTO\\s+XX110T[\\s\\S]*?ROW_NUMBER\\s*\\(\\s*\\)\\s*OVER"
+    },
+    {
+      "id": "max-join",
+      "rule": "MAX(PURSEQ2) comes from a derived LEFT OUTER JOIN",
+      "type": "regex_present",
+      "file": "sp_TEST300_SAVE.sql",
+      "pattern": "LEFT\\s+OUTER\\s+JOIN\\s*\\(\\s*SELECT[\\s\\S]*?MAX\\s*\\(\\s*(\\w+\\.)?PURSEQ2\\s*\\)"
+    },
+    {
+      "id": "derived-alias",
+      "rule": "inside the derived query the table has a T-family alias (FROM XX110T T)",
+      "type": "regex_present",
+      "file": "sp_TEST300_SAVE.sql",
+      "pattern": "\\(\\s*SELECT[\\s\\S]*?MAX\\s*\\(\\s*T\\d?\\.PURSEQ2\\s*\\)[\\s\\S]*?FROM\\s+XX110T\\s+T\\d?\\b"
+    },
+    {
+      "id": "check-sql",
+      "rule": "check_sql has no FAIL",
+      "type": "sql_check",
+      "file": "sp_TEST300_SAVE.sql",
+      "item": "*"
+    },
+    {
+      "id": "used-skill",
+      "rule": "the ACE sql skill was loaded",
+      "type": "trace",
+      "pattern": "ace:sql|skills[\\/]+sql[\\/]"
+    }
+  ]
+}

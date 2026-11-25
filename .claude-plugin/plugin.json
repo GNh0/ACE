@@ -1,0 +1,13 @@
+{
+  "name": "ace",
+  "displayName": "ACE",
+  "version": "6.4.0",
+  "description": "Layered skills in the user's own style: work method, SQL Server procedures, WinForms/DevExpress screens, PowerBuilder migration and the in-house framework/domain/project layer, with recorded lessons and scenario checks.",
+  "author": {
+    "name": "GNho Labs",
+    "url": "https://github.com/GNh0"
+  },
+  "homepage": "https://gnholabs.com",
+  "repository": "https://github.com/GNh0/ACE",
+  "keywords": ["sql", "csharp", "winforms", "devexpress", "powerbuilder", "erp"]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "gnho-labs",
+  "owner": {
+    "name": "GNho Labs"
+  },
+  "plugins": [
+    {
+      "name": "ace",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/GNh0/ACE.git",
+        "ref": "release"
+      },
+      "version": "6.4.0",
+      "description": "ACE: SQL, C#/Designer and PowerBuilder skills."
+    }
+  ],
+  "description": "GNho Labs development skills."
+}

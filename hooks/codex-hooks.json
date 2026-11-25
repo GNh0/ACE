@@ -1,0 +1,95 @@
+{
+  "description": "ACE for Codex: live-DB guard, SP-apply gate, correction and connection hints, work-state save/restore, and the Stop check (execution evidence, checker failures). ACE_HOOK=off turns them off.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_db_guard.py\"  --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_db_guard.py\"  --host codex",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_apply_gate.py\"  --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_apply_gate.py\"  --host codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_hints.py\" PostToolUse --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_hints.py\" PostToolUse --host codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_hints.py\" UserPromptSubmit --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_hints.py\" UserPromptSubmit --host codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_state.py\" PreCompact --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_state.py\" PreCompact --host codex",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_state.py\" SessionStart --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_state.py\" SessionStart --host codex",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_stop_check.py\" --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_stop_check.py\" --host codex",
+            "timeout": 20
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_stop_check.py\" --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_stop_check.py\" --host codex",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}

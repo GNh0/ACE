@@ -1,0 +1,79 @@
+{
+  "id": "select-style",
+  "lesson": "sql style: no CTE, LEFT OUTER JOIN with ON keys only, master tables LEFT, ISNULL empty checks, no column fallback, CONVERT before FORMAT, leading commas",
+  "skills": [
+    "sql"
+  ],
+  "task": "sp_TEST200_SELECT.sql 조회 SP를 우리 스타일로 정리해서 같은 파일에 저장해줘. 출력 열 이름과 순서는 그대로 두고, DB 연결은 없어.",
+  "caller": "unknown",
+  "checks": [
+    {
+      "id": "changed",
+      "rule": "the file was actually rewritten",
+      "type": "file_changed",
+      "file": "sp_TEST200_SELECT.sql"
+    },
+    {
+      "id": "no-cte",
+      "rule": "no CTE",
+      "type": "sql_check",
+      "file": "sp_TEST200_SELECT.sql",
+      "item": "CTE"
+    },
+    {
+      "id": "master-left",
+      "rule": "MS020T/MS030T are LEFT OUTER JOIN",
+      "type": "sql_check",
+      "file": "sp_TEST200_SELECT.sql",
+      "item": "마스터 테이블"
+    },
+    {
+      "id": "no-having",
+      "rule": "no HAVING filter",
+      "type": "regex_absent",
+      "file": "sp_TEST200_SELECT.sql",
+      "pattern": "\\bHAVING\\b"
+    },
+    {
+      "id": "on-keys-only",
+      "rule": "ON holds join keys only (USEYN filter moves to WHERE)",
+      "type": "regex_absent",
+      "file": "sp_TEST200_SELECT.sql",
+      "pattern": "\\bON\\b(?:(?!\\bWHERE\\b|\\bJOIN\\b)[\\s\\S])*?\\bUSEYN\\b"
+    },
+    {
+      "id": "empty-check",
+      "rule": "empty check is ISNULL(X, '') <> '' (no NULLIF/IS NOT NULL)",
+      "type": "sql_check",
+      "file": "sp_TEST200_SELECT.sql",
+      "item": "IS NULL / IS NOT NULL"
+    },
+    {
+      "id": "no-fallback",
+      "rule": "no ISNULL fallback to another column",
+      "type": "sql_check",
+      "file": "sp_TEST200_SELECT.sql",
+      "item": "다른 열 대체"
+    },
+    {
+      "id": "convert",
+      "rule": "CONVERT instead of FORMAT for a plain number",
+      "type": "regex_absent",
+      "file": "sp_TEST200_SELECT.sql",
+      "pattern": "\\bFORMAT\\s*\\(\\s*A\\.QTY"
+    },
+    {
+      "id": "check-sql",
+      "rule": "check_sql has no FAIL",
+      "type": "sql_check",
+      "file": "sp_TEST200_SELECT.sql",
+      "item": "*"
+    },
+    {
+      "id": "used-skill",
+      "rule": "the ACE sql skill was loaded",
+      "type": "trace",
+      "pattern": "ace:sql|skills[\\/]+sql[\\/]"
+    }
+  ]
+}

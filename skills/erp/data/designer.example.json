@@ -1,0 +1,13 @@
+{
+  "_note": "Format of <profile>/designer.json (default ~/.claude/ace/profile/designer.json, or $ACE_PROFILE_DIR). Values here are made up. check_designer.py reads only the local file; without it the control-library items are skipped.",
+  "profile": "ExampleLib",
+  "control_prefix": "ux",
+  "label_type": "uxLabel",
+  "defaults": {"uxLabel": [100, 25], "uxDateEdit": [100, 25], "uxTextEdit": [150, 25], "uxLookUpEdit": [150, 25]},
+  "extra_width": {"uxDateEdit": [105]},
+  "single_line": ["uxTextEdit", "uxLookUpEdit", "uxDateEdit"],
+  "name_prefix": {"uxLabel": "lbl", "uxTextEdit": "txt", "uxLookUpEdit": "cbo", "uxDateEdit": "ymd", "uxGridControl": "grd", "uxGridView": "gvw"},
+  "grid_roles": ["List", "Detail", "Item", "Master"],
+  "required": {"uxLookUpEdit": ["Size", "TabIndex"]},
+  "usual": {"uxLookUpEdit": ["Properties.DisplayMember", "Properties.ValueMember"]}
+}

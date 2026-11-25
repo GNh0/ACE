@@ -1,0 +1,15 @@
+{
+  "ace-stop-check": {
+    "PostToolUse": [
+      {
+        "matcher": "^(view_file|write_to_file|replace_file_content|multi_replace_file_content|run_command)$|sql",
+        "hooks": [
+          {"type": "command", "command": "python -B hooks/ace_stop_check.py --host antigravity PostToolUse", "timeout": 10}
+        ]
+      }
+    ],
+    "Stop": [
+      {"type": "command", "command": "python -B hooks/ace_stop_check.py --host antigravity Stop", "timeout": 20}
+    ]
+  }
+}

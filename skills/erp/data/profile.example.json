@@ -1,0 +1,12 @@
+{
+  "_note": "Format of <profile>/profile.json (default ~/.claude/ace/profile/profile.json, or $ACE_PROFILE_DIR). Values here are made up. check_sql.py, mine_style.py and the stop hook read only the local file; items without a value are skipped. private_words: extra words scripts/check_public.py refuses in the repository (company, people, servers).",
+  "profile": "ExampleLib",
+  "base_forms": ["FrmBase", "FrmPopup"],
+  "framework_markers": ["ExampleLib."],
+  "project_path_regex": "[\\\\/]PROJECT_[A-Z]\\b",
+  "number_table": "SY100T",
+  "numbering_sp": "SP_NEW_KEY",
+  "master_table_regex": "MS0\\d\\dT",
+  "save_calls": {"SaveTrn": "trn", "SaveNoTrn": "plain"},
+  "private_words": []
+}
