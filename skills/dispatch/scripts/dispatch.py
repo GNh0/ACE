@@ -31,7 +31,7 @@ Every piece runs headless in its `dir`:
   agy    : agy -p <prompt> --output-format json --mode accept-edits|plan --model --effort --print-timeout
            (personal account: Vertex/Cloud variables are dropped for the run)
 Each worker runs in a job object: its whole process tree (MCP servers too) is killed when it ends
-or times out. DB MCP servers are off unless the piece says needs_db; Antigravity has no live-DB guard hook, so a needs_db piece
+or times out. DB MCP servers are off unless the piece says needs_db; Antigravity's live-DB guard is checked only on run_command, so a needs_db piece
 is refused there. Codex and Claude keep ACE hooks/ace_db_guard.py when the plugin and its hooks are installed.
 
 Checks before running: the hosts exist, no two pieces share a file (same dir, overlapping globs), the
@@ -454,7 +454,7 @@ def validate(plan, me):
         if not p.get('read_only') and not p.get('files'):
             problems.append('%s: an editing piece needs its file scope ("files")' % p['id'])
         if h == 'agy' and p.get('needs_db'):
-            problems.append('%s: Antigravity has no live-DB guard; give DB pieces to codex or claude' % p['id'])
+            problems.append('%s: Antigravity live-DB guard not checked on MCP tools; give DB pieces to codex or claude' % p['id'])
         if h == 'agy' and not p.get('read_only'):
             problems.append('%s: Antigravity takes read-only pieces only (its base instructions cannot be '
                             'replaced); give edits to codex or claude' % p['id'])

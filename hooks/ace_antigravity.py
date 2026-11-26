@@ -18,6 +18,30 @@ def _ag_state_path(conversation):
     return os.path.join(folder, 'antigravity-%s.json' % hashlib.sha256(conversation.encode('utf-8')).hexdigest()[:24])
 
 
+def ag_pre(event):
+    """Antigravity PreToolUse event -> (tool name, argument text, latest user message, conversation state)."""
+    call = event.get('toolCall') if isinstance(event.get('toolCall'), dict) else {}
+    args = call.get('args') if isinstance(call.get('args'), dict) else {}
+    state = {}
+    conversation = event.get('conversationId')
+    if isinstance(conversation, str) and conversation:
+        try:
+            with open(_ag_state_path(conversation), encoding='utf-8') as f:
+                state = json.load(f)
+        except (OSError, ValueError):
+            state = {}
+        token = hashlib.sha256(str(event.get('lastUserInput') or '').encode('utf-8')).hexdigest()
+        if state.get('turn') != token:
+            state = {'turn': token, 'db': []}
+    return str(call.get('name') or ''), '\n'.join(strings(args)), str(event.get('lastUserInput') or ''), state
+
+
+def ag_answer(reason):
+    """PreToolUse output: deny with the reason, else "ask" = the host's normal permission flow. An empty object is a
+    deny in Antigravity, and "allow" would skip the user's approval (both checked with agy -p, 2026-11-26)."""
+    return json.dumps({'decision': 'deny', 'reason': reason}) if reason else json.dumps({'decision': 'ask'})
+
+
 def antigravity(name, event, analyze):
     """One Antigravity hook event (cwd = plugin root). PostToolUse records; Stop judges once per user request."""
     if name == 'PreToolUse':

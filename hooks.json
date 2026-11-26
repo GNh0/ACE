@@ -1,4 +1,14 @@
 {
+  "ace-db-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "^run_command$|sql",
+        "hooks": [
+          {"type": "command", "command": "python -B hooks/ace_ag_pretool.py", "timeout": 10}
+        ]
+      }
+    ]
+  },
   "ace-stop-check": {
     "PostToolUse": [
       {

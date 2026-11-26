@@ -1,6 +1,6 @@
-"""ACE PreToolUse guard for live databases (Claude Code and Codex). Prints nothing when fine.
+"""ACE PreToolUse guard for live databases (Claude Code, Codex, Antigravity). Prints nothing when fine.
 
-  python -B ace_db_guard.py [--host claude|codex|auto]
+  python -B ace_db_guard.py [--host claude|codex|antigravity|auto]
 
 The user lists live (read-only) DB connections in ~/.claude/ace/config.json:
   {"protected_db": ["PROD_ERP"]}
@@ -10,7 +10,8 @@ Any statement that changes data or objects is refused there: INSERT/UPDATE/DELET
 CREATE/GRANT/EXEC of a procedure (writes to @table variables and #temp objects are allowed), unless the user's
 latest message itself asks for it: it names that DB (or 운영/live) and a change verb (수정, 적용, 반영, 실행,
 바꿔, 넣어, 삭제, ALTER …). Only the user's words count, never the agent's. ACE_HOOK=off turns it off; never blocks on its
-own errors. Ideas from ECC hookify/config-protection (MIT).
+own errors. Antigravity: the event's lastUserInput is the user's message; a block is {"decision": "deny"} on stdout,
+a pass is "ask" (the normal permission flow; {} would deny, "allow" would skip approval). Ideas from ECC hookify/config-protection (MIT).
 """
 import json
 import os
@@ -23,7 +24,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 import ace_hosts  # noqa: E402
 
-CONFIG = os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'config.json')
+CONFIG = os.environ.get('ACE_CONFIG') or os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'config.json')
 WRITE = re.compile(
     r'\b(?:INSERT\s+(?:INTO\s+)?(?!INTO\b)(?![@#])[\w\[\]\.]+'
     r'|UPDATE\s+(?![@#])[\w\[\]\.]+\s+SET\b|UPDATE\s+\w+\s*$'
@@ -52,8 +53,17 @@ def strip_comments(q):
     return re.sub(r"'(?:''|[^'])*'", "''", q)  # 문자열 안의 'UPDATE …'는 보지 않는다
 
 
+def server_of(name):
+    """MCP server part of a tool name: Claude/Codex `mcp__<server>__<tool>`, Antigravity `<server>.mssql_x` or
+    `mcp_<server>_mssql_x`."""
+    if name.startswith('mcp__') and name.count('__') >= 2:
+        return name.split('__')[1]
+    m = re.match(r'^(?:mcp[_:.]+)?(.+?)[._:]+(mssql_\w+)$', name, re.I)
+    return m.group(1) if m else ''
+
+
 def target(name, text, keys):
-    server = name.split('__')[1] if name.startswith('mcp__') and name.count('__') >= 2 else ''
+    server = server_of(name)
     for k in keys:
         if server and (server.lower() == k.lower() or server.lower().endswith('_' + k.lower())):
             return k
@@ -67,6 +77,9 @@ ALLOW_VERB = re.compile(r'수정|적용|반영|실행|바꿔|바꾸|고쳐|넣�
 
 def user_allows(data, key):
     """The latest real user message names this DB (or 운영/live) together with a change verb."""
+    last = data.get('_last_user')
+    if last is not None:
+        return allows_text(last, key)
     path = os.path.expanduser(str(data.get('transcript_path') or ''))
     if not path or not os.path.isfile(path):
         return False
@@ -79,6 +92,10 @@ def user_allows(data, key):
             p = d['payload']
             if p.get('type') == 'message' and p.get('role') == 'user' and ace_hosts._codex_user(p):
                 last = ' '.join(x.get('text', '') for x in p.get('content') or [] if isinstance(x, dict))
+    return allows_text(last, key)
+
+
+def allows_text(last, key):
     # 연결 이름 그대로(PROD_ERP / PROD ERP) 또는 '운영'·live. 접두어를 뺀 DB 이름만으로는 개발 사본과 구분되지 않아 열지 않는다
     names = [key, key.replace('_', ' ', 1), '운영', 'live']
     return bool(ALLOW_VERB.search(last)) and any(n and n.lower() in last.lower() for n in names)
@@ -103,12 +120,21 @@ def decide(data):
 
 
 def main(argv):
+    host = argv[argv.index('--host') + 1] if '--host' in argv[:-1] else 'auto'
+    reason = None
     try:
         data = json.loads(sys.stdin.buffer.read().decode('utf-8-sig', 'replace') or '{}')
-        if not isinstance(data, dict) or os.environ.get('ACE_HOOK', '').strip().lower() == 'off':
-            return 0
-        reason = decide(data)
+        if isinstance(data, dict) and os.environ.get('ACE_HOOK', '').strip().lower() != 'off':
+            if host == 'antigravity':
+                import ace_antigravity
+                name, text, last, _ = ace_antigravity.ag_pre(data)
+                data = {'tool_name': name, 'tool_input': text, '_last_user': last}
+            reason = decide(data)
     except Exception:
+        reason = None
+    if host == 'antigravity':
+        import ace_antigravity
+        sys.stdout.write(ace_antigravity.ag_answer(reason))
         return 0
     if reason:
         sys.stderr.buffer.write(reason.encode('utf-8'))

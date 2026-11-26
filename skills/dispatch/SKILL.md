@@ -38,7 +38,7 @@ Pick by kind first, then headroom (the host with the most remaining % in the win
 
 Antigravity uses Gemini 4 by default: Carbon is its planner (Antigravity's own Orchestrator plans with Carbon High), Hydrogen its executor (it executes with Hydrogen High). The Gemini group shares one quota, used in proportion to token cost. `gemini-3.8-flash-*` only when that group is above ~85 % used or the user asks for it.
 
-Move a piece off a host whose window is above ~85 % used or `unknown`. Antigravity has no live-DB guard hook: `needs_db` pieces go to Codex or Claude. Model names: `agy models` lists Antigravity's. Codex's default is the `config.toml` value, which the script reads and never writes.
+Move a piece off a host whose window is above ~85 % used or `unknown`. Antigravity's live-DB guard is checked only on `run_command` (its MCP tool names are not yet seen): `needs_db` pieces go to Codex or Claude. Model names: `agy models` lists Antigravity's. Codex's default is the `config.toml` value, which the script reads and never writes.
 
 ## 4. Run
 
