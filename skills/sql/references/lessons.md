@@ -89,6 +89,10 @@ Matching entries override rules; format: [compound.md](../../work/references/com
 - Rule: master tables LEFT OUTER JOIN; a required master row is an explicit IF EXISTS check, only when asked. [style.md](style.md#sql-layout)
 - Follow-up (same day): "그 두개뿐만 아니라 INNER JOIN을 왜이렇게 쓰는지 잘 모르겠거든 필수테이블 연결아닌데도" — LEFT OUTER JOIN is the default for every non-required table; INNER only for the staging table in SAVE writes or user-stated required rows.
 
+### Decide each join by what the query does (2026-11-26, PROJECT_A XP200500 LOT popup)
+- Mistake: a LOT popup whose picks go straight into production kept `INNER JOIN MS030T` on item masters, and the agent wanted to leave out the item's `USEYN = 'Y'` because every row was 'Y' today. User: "도대체 왜 (품목 마스터)같은애들을 inner join 쳐 걸어놓는지 이유를 모르겠네?", "그래도 걸어야한다고 야 그럼 나중에 사용안함 체크할때도 지금 똑같다고 그냥 처리되도록 두게?", "USEYN = 'Y' 이 꼭 필요한건 아닌데 저런곳은 품목으로 이제 생산들어가는거니깐 품목마스터에 사용중인지 아닌지 체크하니깐", "ON에 넣을지 WHERE 에 넣을지는 처리방식에 따라서 정해야지".
+- Rule: for every join ask what it does in this query, never decide by habit or by today's data. A business condition (only active items may go into production) stays even when today's data would give the same result. Where it goes follows the processing: rows that must not be processed are excluded in WHERE; rows that stay with the lookup blanked keep it in ON. [style.md](style.md#sql-layout)
+
 ### CASE always has ELSE (2026-11-24, XM200150)
 - Mistake: `(CASE WHEN C.PROCCD = '06' THEN A.CUSTLOTNUM END)`; user: "ELSE NULL이나 ELSE '' 같은거 가져다 팔아먹었네?".
 - Rule: every CASE has ELSE. [style.md](style.md#sql-layout)
