@@ -9,10 +9,18 @@
       }
     ]
   },
+  "ace-context": {
+    "SessionStart": [
+      {"type": "command", "command": "python -B hooks/ace_ag_context.py SessionStart", "timeout": 10}
+    ],
+    "PreInvocation": [
+      {"type": "command", "command": "python -B hooks/ace_ag_context.py PreInvocation", "timeout": 10}
+    ]
+  },
   "ace-stop-check": {
     "PostToolUse": [
       {
-        "matcher": "^(view_file|write_to_file|replace_file_content|multi_replace_file_content|run_command)$|sql",
+        "matcher": "^(view_file|read_file|write_to_file|write_file|edit_file|replace_file_content|multi_replace_file_content|run_command)$|sql",
         "hooks": [
           {"type": "command", "command": "python -B hooks/ace_stop_check.py --host antigravity PostToolUse", "timeout": 10}
         ]
