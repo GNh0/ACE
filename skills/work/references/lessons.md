@@ -16,6 +16,7 @@ Matching entries override rules; format: [compound.md](compound.md).
 - Mistake: a Claude session changed `XM200150.cs` and `XM200150_LABEL_RPT.*` for three turns without any ACE skill, then loaded only the csharp SKILL.md (no lessons, no reports.md) and never the erp skill. User: "XM200150 라벨 출력 수정 채팅에서는 스킬 알아서 안쓴거같은데".
 - Rule: SQL/C# edits load the language skill (+ erp for framework screens/SPs) and read its lessons and the task-table document before the first edit.
 - Check: Stop hook `doc_reasons` (no ACE skill on .sql/.cs edits; skill loaded but no rule document opened before the first write; framework screen without erp), block once.
+- Exception (2026-11-27, PROJECT_B event-handler removal): two blocks for a one-handler removal re-read the skills and found nothing; user: "너무 빡빡한거같은데? 필요없이 훅을 가져다 쓴거같은?". A small code-behind change (≤ 15 changed lines per file, at most 3 files, no Designer file, no .sql, no caption/text assignment, not a new file) is not blocked for the skill; `check_designer.py` still runs on it and blocks on a failure. When a block is due it names every missing skill at once (csharp·erp). Ambiguous correction phrases ("그게 아니라 ~되게", "~하지 마") trigger the lesson hint only after the agent's own edit in the previous turn.
 
 ### Dispatch only on explicit words (2026-11-25)
 - Mistake: the dispatch skill triggered only on phrases like "나눠서 시켜줘"; work never pointed to it, so multi-object and batch tasks ran on one host.

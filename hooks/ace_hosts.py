@@ -20,11 +20,17 @@ HOST_BLOCK = ('<', '# AGENTS.md instructions')
 JS_CONST = re.compile(r'\b(?:const|let|var)\s+(\w+)\s*=\s*(["\'`])((?:\\.|(?!\2).)*?)\2', re.S)
 PATCH = re.compile(r'\*\*\* Begin Patch(.*?)\*\*\* End Patch', re.S)
 MAX_WRITES = 64
+# A shell command that writes a .cs/.sql file (a write verb or a redirect aimed at one); `2>$null`, builds and reads
+# do not count.
+SHELL_WRITE = re.compile(r'(?:Set-Content|Add-Content|Out-File|Copy-Item|Move-Item|New-Item|\bsed\s+-i|\btee\b|'
+                         r'WriteAll(?:Text|Lines|Bytes))[^\n;|]*\.(?:cs|sql)\b'
+                         r'|(?<![0-9])>>?\s*["\']?[^\s&|"\'>]*\.(?:cs|sql)\b', re.I)
 
 
 class Turn:
     def __init__(self):
         self.skills, self.writes, self.db, self.finals = set(), [], [], []
+        self.shell_writes = False
         self.docs = set()  # ACE skills whose references/lessons were opened in the session
 
     def add_write(self, path, body='', original=None, added=False, hunks=()):
@@ -256,18 +262,34 @@ def claude_turn(records, event):
         if first_write:
             break
     turn.docs_before_write = before
-    originals = {}
+    originals, patched, created = {}, {}, set()
     for d in window:
         r = d.get('toolUseResult')
-        if isinstance(r, dict) and r.get('filePath') and 'originalFile' in r:
-            originals.setdefault(os.path.normcase(os.path.abspath(r['filePath'])), r.get('originalFile'))
+        if not (isinstance(r, dict) and r.get('filePath')):
+            continue
+        key = os.path.normcase(os.path.abspath(r['filePath']))
+        if 'originalFile' in r:
+            originals.setdefault(key, r.get('originalFile'))
+        if r.get('type') == 'create':
+            created.add(key)
+        # Newer Claude Code keeps only the hunks (originalFile null): their +/- lines are the change itself.
+        sp = r.get('structuredPatch')
+        if isinstance(sp, list):
+            lines = [l[1:] for h in sp if isinstance(h, dict) for l in h.get('lines') or []
+                     if isinstance(l, str) and l[:1] in '+-']
+            n, acc = patched.get(key, (0, []))
+            patched[key] = (n + 1, acc + lines)
+    edits = {}
     seen = set()
     for name, inp in _claude_uses(window):
         p = str(inp.get('file_path', ''))
+        if name in ('Bash', 'PowerShell') and SHELL_WRITE.search(str(inp.get('command', ''))):
+            turn.shell_writes = True  # a file may have changed outside Write/Edit
         if name in ('Write', 'Edit', 'MultiEdit') and p:
             key = os.path.normcase(os.path.abspath(p))
             orig = originals.get(key)
             body = ' '.join(strings({k: v for k, v in inp.items() if k != 'file_path'}))
+            edits[key] = edits.get(key, 0) + 1
             if key in seen:
                 for w in turn.writes:
                     if w['path'] and os.path.normcase(os.path.abspath(w['path'])) == key:
@@ -278,6 +300,13 @@ def claude_turn(records, event):
         elif 'mssql' in name.lower() or (name in ('Bash', 'PowerShell') and re.search(
                 r'sqlcmd|Invoke-Sqlcmd', str(inp.get('command', '')), re.I)):
             turn.db.append(' '.join(strings(inp)))
+    for w in turn.writes:  # the changed lines, only when every edit of the file reported its hunks
+        key = os.path.normcase(os.path.abspath(w['path'])) if w['path'] else None
+        n, lines = patched.get(key, (0, None))
+        if key in created:
+            w['added'] = True
+        elif lines is not None and n == edits.get(key):
+            w['patch_lines'] = lines
     turn.finals.append(str(event.get('last_assistant_message') or ''))
     for d in reversed(window):
         if d.get('type') == 'assistant':
