@@ -9,6 +9,11 @@
       }
     ]
   },
+  "ace-dbhub": {
+    "SessionStart": [
+      {"type": "command", "command": "python -B skills/dbhub/scripts/dbhub.py ensure --host antigravity", "timeout": 10}
+    ]
+  },
   "ace-context": {
     "SessionStart": [
       {"type": "command", "command": "python -B hooks/ace_ag_context.py SessionStart", "timeout": 10}

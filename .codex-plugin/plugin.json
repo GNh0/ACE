@@ -1,6 +1,6 @@
 {
   "name": "ace",
-  "version": "6.5.1",
+  "version": "6.6.0",
   "description": "Layered skills in the user's own style: work method, SQL Server procedures, WinForms/DevExpress screens, PowerBuilder migration and the in-house framework/domain/project layer, with recorded lessons and scenario checks.",
   "author": {
     "name": "GNho Labs",
@@ -12,7 +12,7 @@
   "interface": {
     "displayName": "ACE",
     "shortDescription": "SQL Server, WinForms/DevExpress and PowerBuilder work in the user's style.",
-    "longDescription": "Five layered skills (work, sql, csharp, pb, erp) plus helper skills (review, style, comply, dispatch: hand pieces to Claude Code, Codex and Antigravity by remaining usage; credit: optional API-credit billing, inert without a key), per-skill lessons, standard-library checkers and scripts (check_sql, check_designer, make_compare_test, map_project, mine_style) and hooks: live-DB guard, SP-apply gate, correction and connection hints, work-state save/restore, and a Stop check. The hooks need Python and host trust.",
+    "longDescription": "Five layered skills (work, sql, csharp, pb, erp) plus helper skills (review, style, comply, dispatch: hand pieces to Claude Code, Codex and Antigravity by remaining usage; credit: optional API-credit billing, inert without a key; dbhub: one shared MSSQL MCP hub for all three hosts with register, manage and diagnose), per-skill lessons, standard-library checkers and scripts (check_sql, check_designer, make_compare_test, map_project, mine_style) and hooks: live-DB guard, SP-apply gate, correction and connection hints, work-state save/restore, and a Stop check. The hooks need Python and host trust.",
     "developerName": "GNho Labs",
     "category": "Productivity",
     "capabilities": [

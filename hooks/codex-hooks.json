@@ -63,6 +63,12 @@
             "command": "python3 -B \"${PLUGIN_ROOT}/hooks/ace_state.py\" SessionStart --host codex",
             "commandWindows": "python -B \"$env:PLUGIN_ROOT/hooks/ace_state.py\" SessionStart --host codex",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 -B \"${PLUGIN_ROOT}/skills/dbhub/scripts/dbhub.py\" ensure --host codex",
+            "commandWindows": "python -B \"$env:PLUGIN_ROOT/skills/dbhub/scripts/dbhub.py\" ensure --host codex",
+            "timeout": 10
           }
         ]
       }

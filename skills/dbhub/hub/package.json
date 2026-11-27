@@ -1,0 +1,7 @@
+{
+  "name": "ace-dbhub",
+  "private": true,
+  "type": "module",
+  "description": "ACE dbhub: one local MSSQL MCP hub shared by Claude Code, Codex and Antigravity",
+  "dependencies": { "mssql-mcp": "3.0.0" }
+}

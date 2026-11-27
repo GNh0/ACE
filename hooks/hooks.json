@@ -99,6 +99,18 @@
               "claude"
             ],
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python",
+            "args": [
+              "-B",
+              "${CLAUDE_PLUGIN_ROOT}/skills/dbhub/scripts/dbhub.py",
+              "ensure",
+              "--host",
+              "claude"
+            ],
+            "timeout": 10
           }
         ]
       }
