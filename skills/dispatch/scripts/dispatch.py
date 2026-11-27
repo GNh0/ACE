@@ -105,7 +105,6 @@ def credit():
     return _CREDIT[0]
 
 
-OPENAI_CFG = os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'dispatch', 'openai.json')
 OPENAI_STATE = os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'dispatch', 'openai-state.json')
 OPENAI_LOW = re.compile(r'insufficient_quota|exceeded your current quota|billing_hard_limit', re.I)
 OPENAI_BAD = re.compile(r'invalid_api_key|incorrect api key', re.I)
@@ -122,10 +121,10 @@ CREDIT_CFG = os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'credit.jso
 
 
 def openai_vault():
-    """Local setting only: ACE_OPENAI_VAULT, "openai_vault" in ~/.claude/ace/credit.json, or the older
-    ~/.claude/ace/dispatch/openai.json "vault". None (Codex stays on its subscription) when none is set."""
+    """Local setting only: ACE_OPENAI_VAULT or "openai_vault" in ~/.claude/ace/credit.json. None (Codex stays on
+    its subscription) when neither is set."""
     path = os.environ.get('ACE_OPENAI_VAULT')
-    for cfg_path, field in ((CREDIT_CFG, 'openai_vault'), (OPENAI_CFG, 'vault')):
+    for cfg_path, field in ((CREDIT_CFG, 'openai_vault'),):
         if path:
             break
         try:
@@ -249,7 +248,8 @@ def child_env(host, base=None):
     """A worker's environment: no inherited keys or API routing, marked with its host (whoami) and as a dispatch
     child, so a worker never re-dispatches or mistakes itself for the orchestrator."""
     env = dict(base if base is not None else os.environ)
-    for k in CHILD_DROP:
+    c = _CREDIT[0] if _CREDIT else credit()
+    for k in set(CHILD_DROP) | set(getattr(c, 'KEY_VARS', ())):
         env.pop(k, None)
     env['ACE_DISPATCH_SELF'] = host
     env['ACE_DISPATCH_CHILD'] = '1'

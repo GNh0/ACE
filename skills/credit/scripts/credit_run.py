@@ -9,7 +9,7 @@ Nothing here is personal: the key is read from an environment variable (default 
 "anthropic_key_var" in the local ~/.claude/ace/credit.json; process env, then the Windows user environment) and is
 never printed or written anywhere by this script. Without a key every run goes to the subscription and the ACE hint
 stays silent, so the plugin is safe to install for anyone. ACE_CREDIT=off turns the credit off.
-State and ledger: ~/.claude/ace/credit/ (an older ~/.claude/credit-first/ ledger is read once if present). `run` starts `claude -p` with that key in a
+State and ledger: ~/.claude/ace/credit/ (`ledger` also reads an older ~/.claude/credit-first/ledger.jsonl). `run` starts `claude -p` with that key in a
 clean environment (no desktop-app proxy/session variables), so skills, hooks, plugins, CLAUDE.md and memory all
 load as usual and the cost is billed to the key's organization. A "credit balance is too low" answer marks the
 credit exhausted (retried once a day) and the same task re-runs on the subscription unless --no-fallback.
@@ -46,16 +46,12 @@ def config():
 
 
 KEY_VAR = str(config().get('anthropic_key_var') or 'ANTHROPIC_CREDIT_KEY')
-if not os.path.isdir(DATA) and os.path.isdir(OLD_DATA):  # one-time move from the standalone credit-first skill
-    try:
-        import shutil as _sh
-        _sh.copytree(OLD_DATA, DATA)
-    except OSError:
-        pass
+KEY_VARS = {KEY_VAR, 'ANTHROPIC_CREDIT_KEY'}  # never passed on to a child, whatever its billing
+SECRET_RE = re.compile(r'sk-(?:proj-|ant-|svcacct-|admin-)?[A-Za-z0-9_-]{20,}')
 CONSOLE_KEYS = 'https://console.anthropic.com/settings/keys'
 RETRY_AFTER = 24 * 3600
 CREDIT_LOW = re.compile(r'credit balance (is )?too low|insufficient (credit|balance)', re.I)
-AUTH_BAD = re.compile(r'invalid (x-)?api[ -]?key|authentication_error|invalid bearer|401', re.I)
+AUTH_BAD = re.compile(r'invalid (x-)?api[ -]?key|authentication_error|invalid bearer', re.I)
 # desktop-app / parent-session variables that would route the child through the app instead of the API key
 DROP = re.compile(r'^(CLAUDECODE|CLAUDE_CODE_.*|CLAUDE_AGENT_SDK.*|CLAUDE_PID|CLAUDE_EFFORT|CLAUDE_PREVIEW_.*'
                   r'|ANTHROPIC_BASE_URL|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_API_KEY|USE_LOCAL_OAUTH|USE_STAGING_OAUTH)$', re.I)
@@ -76,7 +72,7 @@ def get_key():
                 k = winreg.QueryValueEx(h, KEY_VAR)[0]
         except OSError:
             k = None
-    return (k or '').strip() or None
+    return (k.strip() or None) if isinstance(k, str) else None
 
 
 def load_state():
@@ -148,7 +144,7 @@ def find_claude():
 
 
 def clean_env(key=None):
-    env = {k: v for k, v in os.environ.items() if not DROP.match(k)}
+    env = {k: v for k, v in os.environ.items() if not DROP.match(k) and k not in KEY_VARS}
     if key:
         env['ANTHROPIC_API_KEY'] = key
     env['CREDIT_FIRST_CHILD'] = '1'  # the child must do the work itself, never re-dispatch
@@ -174,9 +170,20 @@ def run_claude(prompt, cwd, model, plan, key, add_dirs=()):
     err_text = ' '.join(x for x in (text if data.get('is_error') else '', p.stderr or '',
                                      '' if data else raw) if x)
     return {'mode': 'credit' if key else 'subscription', 'exit': p.returncode, 'is_error': bool(data.get('is_error'))
-            or (p.returncode != 0 and not data), 'result': text, 'error': err_text[-1500:],
+            or (p.returncode != 0 and not data), 'result': redact(text, key), 'error': redact(err_text[-1500:], key),
+            'turns': data.get('num_turns'),
             'cost_usd': data.get('total_cost_usd'), 'usage': data.get('usage'), 'session_id': data.get('session_id'),
             'seconds': round(time.time() - t0, 1)}
+
+
+def redact(text, key=None):
+    """Never hand a key back to the orchestrator: the known key and anything shaped like one become [REDACTED]."""
+    if not text:
+        return text
+    for k in (key, get_key()):
+        if k:
+            text = text.replace(k, '[REDACTED]')
+    return SECRET_RE.sub('[REDACTED]', text)
 
 
 def ledger_add(r, cwd):
@@ -208,11 +215,12 @@ def run(a):
             if st.pop('exhausted_at', None):
                 save_state(st)
             return out({'route': 'credit', 'result': r}) or 0
-        if CREDIT_LOW.search(blob):
+        early = (r.get('turns') or 0) <= 1  # an API refusal comes on the first call, before any tool ran
+        if CREDIT_LOW.search(blob) and early:
             st['exhausted_at'] = time.time()
             save_state(st)
             reason = 'credit exhausted'
-        elif AUTH_BAD.search(blob):
+        elif AUTH_BAD.search(blob) and early:
             reason = 'key rejected (run setup)'
         else:
             return out({'route': 'credit', 'failed': True, 'result': r,
@@ -244,16 +252,17 @@ def setup(a):
 
 def ledger(a):
     rows, since = [], time.time() - a.days * 86400
-    try:
-        for line in io.open(LEDGER, encoding='utf-8'):
-            try:
-                r = json.loads(line)
-            except ValueError:
-                continue
-            if time.mktime(time.strptime(r['time'], '%Y-%m-%d %H:%M:%S')) >= since:
-                rows.append(r)
-    except OSError:
-        pass
+    for path in (os.path.join(OLD_DATA, 'ledger.jsonl'), LEDGER):
+        try:
+            for line in io.open(path, encoding='utf-8'):
+                try:
+                    r = json.loads(line)
+                    if time.mktime(time.strptime(r['time'], '%Y-%m-%d %H:%M:%S')) >= since:
+                        rows.append(r)
+                except (ValueError, KeyError, TypeError):
+                    continue
+        except OSError:
+            pass
     agg = {}
     for r in rows:
         m = agg.setdefault(r['mode'], {'runs': 0, 'ok': 0, 'cost_usd': 0.0})
