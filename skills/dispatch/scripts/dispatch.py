@@ -16,15 +16,15 @@ plan.json:
                "resume": "<worker session id of an earlier run of this piece: follow-up in that session>",
                "billing": "auto|credit|sub", "via": "cli|orca"}]}
 
-Billing (Claude pieces): "auto" (default) runs on the organization's API credit when the credit-first key is registered
+Billing (Claude pieces): "auto" (default) runs on the organization's API credit when the ACE credit key is registered
 and the credit is not marked exhausted, else on the subscription; "credit" refuses the plan when the credit is not
-usable; "sub" always uses the subscription. Key, exhaustion state and the clean environment come from the credit-first
-skill (~/.claude/skills/credit-first/scripts/credit_run.py, or ACE_CREDIT_RUN). A Claude piece on the credit is a
+usable; "sub" always uses the subscription. Key, exhaustion state and the clean environment come from the ACE credit
+skill (ACE skills/credit/scripts/credit_run.py, or ACE_CREDIT_RUN). A Claude piece on the credit is a
 different account, so a Claude orchestrator may dispatch it without "allow_self". "credit balance is too low" marks
 the credit exhausted and an "auto" piece re-runs on the subscription.
 Billing (Codex pieces): "credit" = the OpenAI API key of the Codex APIs launcher, decrypted per run (Windows DPAPI, the
 launcher's own scheme) and passed only as CODEX_API_KEY to that `codex exec`; never printed or written. The vault path
-is in ~/.claude/ace/dispatch/openai.json ({"vault": ".../agents-credentials.dpapi"}) or ACE_OPENAI_VAULT. "auto" =
+is "openai_vault" in ~/.claude/ace/credit.json (or ACE_OPENAI_VAULT); without it Codex stays on its subscription. "auto" =
 API first, except when the subscription's weekly window resets within BALANCE_HOURS with more than BALANCE_LEFT % left
 (that headroom would be lost): then the subscription. insufficient_quota marks the API exhausted for 24 h
 (openai-state.json) and an "auto" piece that changed nothing re-runs on the subscription. Antigravity: subscription only.
@@ -85,13 +85,13 @@ LEDGER = os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'dispatch', 'le
 SKIP_DIRS = {'.git', '.svn', '.vs', 'bin', 'obj', 'node_modules', '__pycache__', 'packages'}
 TEXT_LIMIT = 2 * 1024 * 1024
 HOSTS = ('claude', 'codex', 'agy')
-CREDIT_DIR = os.environ.get('ACE_CREDIT_RUN') or os.path.join(os.path.expanduser('~'), '.claude', 'skills',
-                                                                'credit-first', 'scripts')
+CREDIT_DIR = os.environ.get('ACE_CREDIT_RUN') or os.path.join(os.path.dirname(os.path.dirname(HERE)), 'credit',
+                                                                'scripts')  # ACE's own skills/credit
 _CREDIT = []
 
 
 def credit():
-    """The credit-first module (key lookup, exhaustion state, clean env), or None when it is not installed."""
+    """The ACE credit module (key lookup, exhaustion state, clean env), or None when it is not installed."""
     if not _CREDIT:
         mod = None
         if os.path.isfile(os.path.join(CREDIT_DIR, 'credit_run.py')):
@@ -99,7 +99,7 @@ def credit():
                 sys.path.insert(0, CREDIT_DIR)
             try:
                 import credit_run as mod  # noqa: E402
-            except Exception:  # a broken credit-first install must not break dispatch
+            except Exception:  # a broken credit module must not break dispatch
                 mod = None
         _CREDIT.append(mod)
     return _CREDIT[0]
@@ -118,13 +118,20 @@ _DPAPI = ("Add-Type -AssemblyName System.Security; $b=[Convert]::FromBase64Strin
 _OPENAI = []
 
 
+CREDIT_CFG = os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'credit.json')
+
+
 def openai_vault():
+    """Local setting only: ACE_OPENAI_VAULT, "openai_vault" in ~/.claude/ace/credit.json, or the older
+    ~/.claude/ace/dispatch/openai.json "vault". None (Codex stays on its subscription) when none is set."""
     path = os.environ.get('ACE_OPENAI_VAULT')
-    if not path:
+    for cfg_path, field in ((CREDIT_CFG, 'openai_vault'), (OPENAI_CFG, 'vault')):
+        if path:
+            break
         try:
-            with open(OPENAI_CFG, encoding='utf-8') as f:
+            with open(cfg_path, encoding='utf-8') as f:
                 cfg = json.load(f)
-            path = cfg.get('vault') if isinstance(cfg, dict) else None
+            path = cfg.get(field) if isinstance(cfg, dict) else None
         except (OSError, ValueError):
             path = None
     return path if isinstance(path, str) and os.path.isfile(path) else None
@@ -134,7 +141,7 @@ def openai_key():
     """The launcher's OpenAI API key, decrypted once per dispatch process; None when unavailable. Never printed."""
     if not _OPENAI:
         key = None
-        vault = openai_vault()
+        vault = openai_vault() if os.environ.get('ACE_CREDIT', '').strip().lower() != 'off' else None
         if vault and os.name == 'nt':
             try:
                 import base64
@@ -527,7 +534,7 @@ def run_piece(piece, out_dir):
 
 
 def credit_outcome(piece, err, stderr, final, tokens, sid, dur, t0):
-    """Book a credit run in the credit-first ledger and state. Returns the fallback reason for an "auto" piece
+    """Book a credit run in the credit ledger and state. Returns the fallback reason for an "auto" piece
     whose credit run failed on the credit itself (exhausted, key rejected), else None."""
     blob = ' '.join((err or '', stderr or '', final or ''))
     auto = str(piece.get('billing') or 'auto').lower() == 'auto'

@@ -4,6 +4,8 @@
 
 UserPromptSubmit: when the user's message reads as a correction ("장난치니", "왜 이렇게 했어", "말했잖아", "넣지마" …),
   adds one line reminding the agent to fix it and record the lesson (work skill, Compound).
+  Also, while an API-credit key is registered (skills/credit) and not marked exhausted, one line routing real work
+  to the credit or dispatch; silent without a key, so the plugin is safe for anyone.
 PostToolUse: when an MSSQL MCP tool fails with "No active database connection", adds one line: connect first.
 Prints nothing otherwise; never blocks; ACE_HOOK=off turns it off.
 """
@@ -27,11 +29,39 @@ def text_of(data):
     return str(p)
 
 
+CREDIT = ('[ACE credit] API 크레딧을 쓸 수 있다. 파일을 고치거나 만드는 작업, 여러 파일을 읽는 분석이면 직접 하지 말고 보낸다. '
+          '서로 다른 파일로 나눌 수 있거나 Codex·Antigravity가 더 맞는 조각이 있으면 ace:dispatch(billing auto: Claude 조각은 '
+          'Anthropic 크레딧, Codex 조각은 OpenAI API 우선·균형, Orca 안이면 지켜볼 편집 조각은 via orca), 나눌 것 없는 단일 작업은 '
+          'ace:credit 절차대로 `python -B "%s" run --brief <파일> --cwd <프로젝트> --model <모델>`. 이 대화 맥락이 꼭 필요한 일, '
+          '운영 DB 변경, 질문·짧은 답만 여기서 한다. 보낸 결과는 직접 확인하고 답변 끝에 `처리: 크레딧 $<비용>` 또는 '
+          '`처리: 구독(<이유>)`을 적어라.')
+
+
+def credit_hint():
+    """The credit reminder, only while a key is registered and the credit is not marked exhausted. Silent for
+    anyone without a key, inside a credit or dispatch worker, and with ACE_CREDIT=off. No network call."""
+    if os.environ.get('CREDIT_FIRST_CHILD') or os.environ.get('ACE_DISPATCH_CHILD'):
+        return None
+    here = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'skills', 'credit', 'scripts')
+    try:
+        sys.dont_write_bytecode = True
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import credit_run as c
+        key = c.get_key()
+        if not key or c.route(key, c.load_state(), 'unchecked') != 'credit':
+            return None
+        return CREDIT % os.path.join(here, 'credit_run.py')
+    except Exception:
+        return None
+
+
 def prompt_hint(data):
     t = text_of(data)
     if not t.strip() or t.lstrip().startswith('<'):
         return None
-    return LESSON if CORRECTION.search(t) else None
+    hints = [h for h in (LESSON if CORRECTION.search(t) else None, credit_hint()) if h]
+    return '\n'.join(hints) or None
 
 
 def tool_hint(data):

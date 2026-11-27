@@ -2,7 +2,7 @@
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "ace",
   "displayName": "ACE",
-  "version": "6.4.4",
+  "version": "6.5.0",
   "description": "Layered skills for SQL Server procedures, WinForms/DevExpress screens, PowerBuilder migration and the in-house framework, with lessons, checkers and a Stop check.",
   "author": {"name": "GNho Labs", "url": "https://github.com/GNh0"},
   "repository": "https://github.com/GNh0/ACE"
