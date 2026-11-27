@@ -4,6 +4,7 @@
   python -B dispatch.py run plan.json [--out DIR] [--dry-run] run the pieces of a plan in parallel
   python -B dispatch.py ledger [--last N]                   past pieces: host, model, effort, tokens, result
   python -B dispatch.py whoami                              which host is running this (the orchestrator)
+  python -B dispatch.py skills [--json]                     installed skills per host; the ones only one host has
   python -B dispatch.py review OUT ID "통과"                 record a piece's check result (rewrites the log)
   python -B dispatch.py collect OUT ID [--final-file F]     finish an Orca piece after its worker_done (diff, result)
 
@@ -14,7 +15,12 @@ plan.json:
                "dir": "C:/work/folder", "files": ["src/A.cs", "sql/*.sql"], "read_only": false,
                "needs_db": false, "timeout": 1800, "prompt": "..." | "prompt_file": "piece-a.md",
                "resume": "<worker session id of an earlier run of this piece: follow-up in that session>",
-               "billing": "auto|credit|sub", "via": "cli|orca"}]}
+               "billing": "auto|credit|sub", "via": "cli|orca", "skills": ["imagegen"]}]}
+
+Skills: a piece that needs a skill only one host has (dispatch.py skills) goes to that host and lists it in "skills";
+the plan is refused when the host does not have it. The brief tells the worker to use it and to copy what it creates
+outside its folder (a generated image) into the folder. A Codex piece with "skills" and "billing": "auto" runs on
+the subscription: host-only skills lean on the subscription's built-in tools (imagegen's image_gen).
 
 Billing (Claude pieces): "auto" (default) runs on the organization's API credit when the ACE credit key is registered
 and the credit is not marked exhausted, else on the subscription; "credit" refuses the plan when the credit is not
@@ -207,6 +213,8 @@ def billing_of(piece):
         return 'credit-unavailable' if want == 'credit' else 'sub'
     if want == 'auto' and str(piece.get('via') or 'cli').lower() == 'orca':
         return 'sub'  # Orca workers run on the signed-in account
+    if piece.get('host') == 'codex' and piece.get('skills') and want == 'auto':
+        return 'sub'  # host-only skills use the subscription's built-in tools (imagegen's image_gen)
     if piece.get('host') == 'codex':
         st = openai_state()
         ok = bool(openai_key()) and not (st.get('exhausted_at') and time.time() - st['exhausted_at'] < 24 * 3600)
@@ -849,6 +857,11 @@ def framing(piece):
         lines.append('Change only these files: %s. Other files belong to other workers; leave them alone.' % scope)
     lines.append('Never write to a database (no INSERT/UPDATE/DELETE/ALTER/CREATE/EXEC on a server). '
                  'Do not commit, push or switch branches. End with a short summary of what you changed and why.')
+    if piece.get('skills'):
+        names = piece['skills'] if isinstance(piece['skills'], list) else [piece['skills']]
+        lines.append('Use these skills for this piece: %s.' % ', '.join(str(n) for n in names)
+                     + ('' if piece.get('read_only') else ' Anything you create outside this folder (for example a '
+                        'generated image) must be copied into it before you finish; list those files.'))
     lines.append('Write your final message in Korean (code, paths and identifiers stay as they are).')
     head = '\n'.join(lines) + '\n\n'
     if piece.get('resume'):  # follow-up in the worker's own session: it already has the context
@@ -874,6 +887,7 @@ def ledger(res):
 
 def validate(plan, me):
     problems = []
+    sk_cache = None  # read once per plan, live; a "_skills" key in the plan file is ignored
     pieces = plan.get('pieces') or []
     ids = [p.get('id') for p in pieces]
     if not pieces:
@@ -894,6 +908,13 @@ def validate(plan, me):
         if h == me and not plan.get('allow_self') and bill != 'credit':
             problems.append('%s: %s is the orchestrator itself; do it here, set "allow_self": true, or bill it '
                             'to the API credit' % (p['id'], h))
+        if p.get('skills'):
+            if sk_cache is None:
+                sk_cache = host_skills()
+            sk = sk_cache
+            for name in p['skills'] if isinstance(p['skills'], list) else [p['skills']]:
+                if not has_skill(sk, h, str(name)):
+                    problems.append('%s: %s does not have the skill "%s" (dispatch.py skills)' % (p['id'], h, name))
         via = p.get('via') or 'cli'
         if via not in ('cli', 'orca'):
             problems.append('%s: via must be cli or orca' % p['id'])
@@ -1102,6 +1123,198 @@ def cmd_run(a):
     return 0 if all(r['status'] in ('done', 'orca-pending') for r in results) else 1
 
 
+# ---------------------------------------------------------------- skills per host
+
+SKILLS_CACHE = os.path.join(os.path.expanduser('~'), '.claude', 'ace', 'dispatch', 'skills.json')
+# Built-in skills a host serves from its own binary (not on disk) are not listed; everything installed is.
+
+
+def _skill_meta(path):
+    """(name, description) from a SKILL.md front matter; None when unreadable."""
+    try:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            head = f.read(4000)
+    except OSError:
+        return None
+    m = re.match(r'﻿?---\s*\n(.*?)\n---', head, re.S)
+    if not m:
+        return None
+    fm = m.group(1)
+    name = re.search(r'^name:\s*(?:"([^"\n]*)"|\'([^\'\n]*)\'|([^#\n]*))', fm, re.M)
+    nm = next((g for g in (name.groups() if name else ()) if g is not None), '').strip()
+    desc = re.search(r'^description:\s*(?:[>|][-+]?\s*\n((?:[ \t]+.*(?:\n|$))+)|(.*))', fm, re.M)
+    text = ''
+    if desc:
+        text = ' '.join(x.strip() for x in desc.group(1).splitlines()) if desc.group(1) else (desc.group(2) or '')
+        if not desc.group(1):
+            text = re.sub(r'\s+#.*$', '', text) if not text.lstrip().startswith(('"', "'")) else text
+    return (nm or os.path.basename(os.path.dirname(path))), text.strip().strip('"\'')
+
+
+def _skills_in(root, prefix=''):
+    out = []
+    for p in sorted(glob.glob(os.path.join(root, '*', 'SKILL.md'))):
+        meta = _skill_meta(p)
+        if meta:
+            out.append({'name': (prefix + ':' if prefix else '') + meta[0], 'base': meta[0], 'desc': meta[1][:300],
+                        'path': p})
+    return out
+
+
+def _codex_enabled_plugins(cfg):
+    """(name, marketplace) of every [plugins."name@market"] table whose `enabled` is true (comments and other keys
+    in the table allowed)."""
+    out, cur = [], None
+    for raw in cfg.splitlines():
+        line = raw.split('#', 1)[0].strip()
+        m = re.match(r'^\[\s*plugins\."([^"@]+)@([^"]+)"\s*\]$', line)
+        if m:
+            cur = (m.group(1), m.group(2))
+            continue
+        if line.startswith('['):
+            cur = None
+            continue
+        if cur and re.match(r'^enabled\s*=\s*true$', line):
+            out.append(cur)
+            cur = None
+    return out
+
+
+def _codex_version_dir(base):
+    """The version folder Codex uses: `local` first, then the highest version name (not the newest mtime)."""
+    if not os.path.isdir(base):
+        return None
+    names = [d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d))]
+    if 'local' in names:
+        return os.path.join(base, 'local')
+    key = lambda v: [int(x) if x.isdigit() else -1 for x in re.split(r'[.\-+]', v)]  # noqa: E731
+    return os.path.join(base, max(names, key=key)) if names else None
+
+
+def _latest(dirs):
+    dirs = [d for d in dirs if os.path.isdir(d)]
+    return max(dirs, key=os.path.getmtime) if dirs else None
+
+
+def claude_live_skills(timeout=60):
+    """The skills Claude Code itself reports in its init event (built-in, account and plugin skills without a
+    SKILL.md on disk included). The input is the local command `/usage`: no model turn, cost 0 (checked
+    2026-11-27: num_turns 0, total_cost_usd 0). run_tree bounds it and kills the whole process tree on timeout.
+    None on failure."""
+    exe = U.find_claude()
+    if not exe:
+        return None
+    try:
+        stdout, _, _, timed_out = U.run_tree(
+            [exe, '-p', '--output-format', 'stream-json', '--verbose', '--strict-mcp-config', '--mcp-config',
+             '{"mcpServers":{}}'], '/usage', timeout=timeout, cwd=tempfile.gettempdir(),
+            env=child_env('claude', U.claude_env()))
+    except Exception:
+        return None
+    for line in (stdout or '').splitlines():
+        try:
+            m = json.loads(line)
+        except ValueError:
+            continue
+        if m.get('type') == 'system' and m.get('subtype') == 'init':
+            return [str(x) for x in m.get('skills') or []]
+    return None
+
+
+def host_skills(live=True):
+    """Installed skills per host: {'claude': [...], 'codex': [...], 'agy': [...]} (name, base, desc, path).
+    Read fresh on every call, so a skill installed later shows up the next time. Claude's list is the one Claude Code
+    reports (live=True), merged with its skill folders for descriptions."""
+    home = os.path.expanduser('~')
+    res = {'claude': [], 'codex': [], 'agy': []}
+    # Claude Code: user skills + installed plugins (descriptions), then the live list from Claude Code itself
+    res['claude'] += _skills_in(os.path.join(home, '.claude', 'skills'))
+    try:
+        with open(os.path.join(home, '.claude', 'plugins', 'installed_plugins.json'), encoding='utf-8') as f:
+            inst = json.load(f)
+        for key, rows in (inst.get('plugins', inst) or {}).items():
+            path = (rows or [{}])[0].get('installPath') if isinstance(rows, list) else None
+            if path:
+                res['claude'] += _skills_in(os.path.join(path, 'skills'), key.split('@')[0])
+    except (OSError, ValueError, AttributeError):
+        pass
+    names = claude_live_skills() if live else None
+    if names is not None:  # what Claude Code loads, nothing more (a disabled plugin's files are ignored)
+        disk = {x['name'].lower(): x for x in res['claude']}
+        res['claude'] = [disk.get(n.lower()) or {'name': n, 'base': n.split(':')[-1], 'desc': '', 'path': '(built in)'}
+                         for n in names]
+    res['_claude_live'] = names is not None
+    # Codex: user + system skills + plugins enabled in config.toml
+    cx = os.path.join(home, '.codex')
+    res['codex'] += _skills_in(os.path.join(cx, 'skills')) + _skills_in(os.path.join(cx, 'skills', '.system'))
+    try:
+        with open(os.path.join(cx, 'config.toml'), encoding='utf-8', errors='replace') as f:
+            cfg = f.read()
+        for name, market in _codex_enabled_plugins(cfg):
+            base = os.path.join(cx, 'plugins', 'cache', market, name)
+            ver = _codex_version_dir(base)
+            for root in ([os.path.join(ver, 'skills')] if ver else []) + [os.path.join(base, 'skills')]:
+                if os.path.isdir(root):
+                    res['codex'] += _skills_in(root, name)
+                    break
+    except OSError:
+        pass
+    # Antigravity: the CLI's built-in skills + installed plugins
+    gm = os.path.join(home, '.gemini')
+    res['agy'] += _skills_in(os.path.join(gm, 'antigravity-cli', 'builtin', 'skills'))
+    for plug in sorted(glob.glob(os.path.join(gm, 'config', 'plugins', '*'))):
+        res['agy'] += _skills_in(os.path.join(plug, 'skills'), os.path.basename(plug))
+    return res
+
+
+def only_on(skills):
+    """{host: [skill]} of skills (by base name) no other host has."""
+    skills = {h: r for h, r in skills.items() if not h.startswith('_')}
+    bases = {h: {s['base'].lower() for s in rows} for h, rows in skills.items()}
+    out = {}
+    for h, rows in skills.items():
+        others = set().union(*(b for k, b in bases.items() if k != h))
+        seen, mine = set(), []
+        for s in rows:
+            b = s['base'].lower()
+            if b not in others and b not in seen:
+                seen.add(b)
+                mine.append(s)
+        out[h] = mine
+    return out
+
+
+def has_skill(skills, host, name):
+    """`plugin:skill` must match that plugin's skill; a bare name matches any skill of that name."""
+    name = name.lower()
+    rows = skills.get(host, [])
+    if ':' in name:
+        return any(s['name'].lower() == name for s in rows)
+    return any(s['base'].lower() == name or s['name'].lower() == name for s in rows)
+
+
+def cmd_skills(a):
+    sk = host_skills()
+    try:
+        os.makedirs(os.path.dirname(SKILLS_CACHE), exist_ok=True)
+        with open(SKILLS_CACHE, 'w', encoding='utf-8') as f:
+            json.dump(sk, f, ensure_ascii=False, indent=1)
+    except OSError:
+        pass
+    only = only_on(sk)
+    if a.json:
+        print(json.dumps({'only_on': only, 'counts': {h: len(r) for h, r in sk.items() if not h.startswith('_')},
+                          'claude_live': sk.get('_claude_live')}, ensure_ascii=False, indent=1))
+        return 0
+    print('설치된 스킬: ' + ', '.join('%s %d' % (h, len(r)) for h, r in sk.items() if not h.startswith('_'))
+          + ('' if sk.get('_claude_live') else ' (Claude 목록은 폴더만 읽음: Claude Code 시작 정보를 못 받음)'))
+    print('\n| 호스트 | 그 호스트에만 있는 스킬 | 설명 |\n| --- | --- | --- |')
+    for h, rows in only.items():
+        for s in rows:
+            print('| %s | %s | %s |' % (h, s['name'], (s['desc'][:110] + '…') if len(s['desc']) > 110 else s['desc']))
+    return 0
+
+
 def cmd_ledger(a):
     try:
         with open(LEDGER, encoding='utf-8') as f:
@@ -1133,6 +1346,8 @@ def main(argv):
     s = sub.add_parser('ledger')
     s.add_argument('--last', type=int, default=30)
     sub.add_parser('whoami')
+    s = sub.add_parser('skills')
+    s.add_argument('--json', action='store_true')
     s = sub.add_parser('review')
     s.add_argument('out')
     s.add_argument('id')
@@ -1154,6 +1369,8 @@ def main(argv):
         return cmd_review(a)
     if a.cmd == 'collect':
         return cmd_collect(a)
+    if a.cmd == 'skills':
+        return cmd_skills(a)
     return cmd_run(a) if a.cmd == 'run' else cmd_ledger(a)
 
 

@@ -7,11 +7,11 @@ description: 개발 작업을 서로 겹치지 않는 조각으로 나눠 Claude
 
 The agent running this skill is the **orchestrator** (Claude Code, Codex or Antigravity). It splits the task, hands pieces to the *other* hosts through their subscription CLIs, then reviews and reports. All calls go through one script, so the flow is the same on every host:
 
-`python -B <ACE>/skills/dispatch/scripts/dispatch.py <usage|run|ledger|whoami>` (`<ACE>` = this plugin's folder; standard-library Python).
+`python -B <ACE>/skills/dispatch/scripts/dispatch.py <usage|skills|run|collect|review|ledger|whoami>` (`<ACE>` = this plugin's folder; standard-library Python).
 
 ## 1. Read usage
 
-`dispatch.py whoami` → the orchestrator's host. `python -B <ACE>/skills/credit/scripts/credit_run.py status` → whether the organization's API credit is usable (`route: credit`; [credit](../credit/SKILL.md)). `dispatch.py usage` → used % and reset per window: Claude 5-hour/weekly, Codex weekly (+ `config.toml` model/effort), Antigravity Gemini and Claude/GPT groups. `unknown` = could not be read; `cached <time>` = the last good read (live read failed). It can take minutes (agy.exe starts slowly under antivirus scans): run it once per task, in the background. No credentials are read.
+`dispatch.py whoami` → the orchestrator's host. `python -B <ACE>/skills/credit/scripts/credit_run.py status` → whether the organization's API credit is usable (`route: credit`; [credit](../credit/SKILL.md)). `dispatch.py skills` → the skills each host has right now and the ones only one host has, read fresh every time (a skill installed later shows up at once): Claude's list is what Claude Code itself reports at start (built-in and account skills included, no model turn), Codex and Antigravity from their skill folders and enabled plugins. Run it for every task; never route from a remembered list. `dispatch.py usage` → used % and reset per window: Claude 5-hour/weekly, Codex weekly (+ `config.toml` model/effort), Antigravity Gemini and Claude/GPT groups. `unknown` = could not be read; `cached <time>` = the last good read (live read failed). It can take minutes (agy.exe starts slowly under antivirus scans): run it once per task, in the background. No credentials are read.
 
 ## 2. Split
 
@@ -24,7 +24,7 @@ Keep a piece here (no dispatch) when it is a few tool calls, needs the conversat
 
 ## 3. Choose host, model, effort
 
-Pick by kind first, then headroom (the host with the most remaining % in the window that resets last). When the best fit is the orchestrator's own host, do that piece here without dispatching (a run on the own host only when the user asks: `"allow_self": true`):
+Pick by kind first — a piece that needs a host-only skill goes to that host, whoever is orchestrating — then headroom (the host with the most remaining % in the window that resets last). When the best fit is the orchestrator's own host, do that piece here without dispatching (a run on the own host only when the user asks: `"allow_self": true`):
 
 | Piece | First choice | Then |
 | --- | --- | --- |
@@ -33,6 +33,8 @@ Pick by kind first, then headroom (the host with the most remaining % in the win
 | Read-only batch (list, find, summarise, count) | Antigravity `gemini-4-hydrogen-medium` | Claude `claude-haiku-5-5`, Codex effort `low` |
 | Self-contained edit piece (one area, clear spec) | Codex effort `medium` | Claude `claude-sonnet-5-5` |
 | Review of a finished diff (read-only) | A host **other than the one that wrote it** (see 5) | the orchestrator, when it did not write it |
+| Needs a skill only one host has (`dispatch.py skills`) | That host, with `"skills": ["<name>"]` (the plan is refused if the host lacks it) | — (none other has it; say so if that host is unusable) |
+| Image generation or editing | The host whose `dispatch.py skills` list has an image-generation skill (2026-11: Codex `imagegen`, built-in `image_gen` on the subscription), as an editing piece whose `files` cover the output (e.g. `images/*.png`) | — |
 | Second opinion on a design, planning (read-only) | Antigravity `gemini-4-carbon-high` | `claude-opus-5-5-high` there, or the other host |
 
 **Billing (Claude pieces)**: `"billing": "auto"` (default) runs the piece on the organization's API credit while the [credit](../credit/SKILL.md) key is registered and the credit is not marked exhausted, else on the subscription. A credit piece is a different account, so a Claude orchestrator dispatches Claude pieces on the credit instead of keeping them here: this keeps the orchestrator's subscription for this conversation. `"credit"` refuses the plan when the credit is not usable; `"sub"` forces the subscription. "credit balance is too low" marks the credit exhausted (credit state, retried after 24 h) and an `auto` piece that changed nothing re-runs on the subscription. Credit runs are also booked in the credit ledger.
